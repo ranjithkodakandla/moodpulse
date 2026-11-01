@@ -34,14 +34,18 @@ class SettingsViewModel(
 
     init {
         viewModelScope.launch {
-            prefsRepo.preferences.collect { prefs ->
-                _ui.update { it.copy(preferences = prefs) }
-            }
+            try {
+                prefsRepo.preferences.collect { prefs ->
+                    _ui.update { it.copy(preferences = prefs) }
+                }
+            } catch (_: Exception) {}
         }
         viewModelScope.launch {
-            moodRepo.allEntries.collect { entries ->
-                _ui.update { it.copy(totalEntries = entries.size) }
-            }
+            try {
+                moodRepo.allEntries.collect { entries ->
+                    _ui.update { it.copy(totalEntries = entries.size) }
+                }
+            } catch (_: Exception) {}
         }
     }
 

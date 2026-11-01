@@ -31,25 +31,32 @@ class SmartContextViewModel(
 
     init {
         viewModelScope.launch {
-            combine(
-                db.smartContextPreferencesDao().observe().map { it ?: SmartContextPreferences() },
-                db.moodSuggestionDao().observePending()
-            ) { prefs, suggestion ->
-                prefs to suggestion
-            }.collect { (prefs, suggestion) ->
-                val hasPermission = usageCollector.hasPermission()
-                val observations = db.behaviouralObservationDao().getRecent(10)
-                val recentCategoryTotals = loadRecentCategoryTotals()
-                _uiState.update {
-                    it.copy(
-                        prefs = prefs,
-                        pendingSuggestion = suggestion,
-                        recentObservations = observations,
-                        categoryTotals = recentCategoryTotals,
-                        hasPermission = hasPermission
-                    )
+            try {
+                combine(
+                    db.smartContextPreferencesDao().observe()
+                        .catch { emit(null) }
+                        .map { it ?: SmartContextPreferences() },
+                    db.moodSuggestionDao().observePending()
+                        .catch { emit(null) }
+                ) { prefs, suggestion ->
+                    prefs to suggestion
+                }.collect { (prefs, suggestion) ->
+                    try {
+                        val hasPermission = usageCollector.hasPermission()
+                        val observations = db.behaviouralObservationDao().getRecent(10)
+                        val recentCategoryTotals = loadRecentCategoryTotals()
+                        _uiState.update {
+                            it.copy(
+                                prefs = prefs,
+                                pendingSuggestion = suggestion,
+                                recentObservations = observations,
+                                categoryTotals = recentCategoryTotals,
+                                hasPermission = hasPermission
+                            )
+                        }
+                    } catch (_: Exception) { /* keep last known state */ }
                 }
-            }
+            } catch (_: Exception) { /* db unavailable, stay on defaults */ }
         }
     }
 
