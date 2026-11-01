@@ -116,9 +116,3 @@ val md_surfaceContainerHigh = Color(0xFFE6EAE4)
 val md_surfaceContainerHighest = Color(0xFFE0E4DE)
 val md_surfaceDim = Color(0xFFD7DCD6)
 
-// Old aliases for compatibility
-val moodGreat = MoodGreat
-val moodGood = MoodGood
-val moodOkay = MoodOkay
-val moodLow = MoodLow
-val moodVeryLow = MoodVeryLow
