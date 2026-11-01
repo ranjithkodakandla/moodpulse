@@ -6,32 +6,31 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
-// Uses system default sans-serif fonts.
-// To apply Epilogue + Manrope, add the .ttf files to res/font/ and update these families.
-val HeadlineFamily = FontFamily.Default
+// Editorial serif for headers and prominent numbers (Fraunces inspired)
+val HeadlineFamily = FontFamily.Serif
 val BodyFamily = FontFamily.SansSerif
 
 val MoodPulseTypography = Typography(
     displayLarge = TextStyle(
         fontFamily = HeadlineFamily,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 36.sp,
+        fontSize = 38.sp,
         lineHeight = 44.sp,
-        letterSpacing = (-0.72).sp
+        letterSpacing = (-0.8).sp
     ),
     displayMedium = TextStyle(
         fontFamily = HeadlineFamily,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 28.sp,
+        fontSize = 30.sp,
         lineHeight = 36.sp,
-        letterSpacing = (-0.42).sp
+        letterSpacing = (-0.5).sp
     ),
     displaySmall = TextStyle(
         fontFamily = HeadlineFamily,
         fontWeight = FontWeight.SemiBold,
         fontSize = 24.sp,
         lineHeight = 32.sp,
-        letterSpacing = (-0.24).sp
+        letterSpacing = (-0.3).sp
     ),
     headlineLarge = TextStyle(
         fontFamily = HeadlineFamily,
@@ -42,70 +41,71 @@ val MoodPulseTypography = Typography(
     headlineMedium = TextStyle(
         fontFamily = HeadlineFamily,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 20.sp,
+        fontSize = 22.sp,
         lineHeight = 28.sp
     ),
     headlineSmall = TextStyle(
         fontFamily = HeadlineFamily,
-        fontWeight = FontWeight.Medium,
-        fontSize = 18.sp,
-        lineHeight = 24.sp
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 19.sp,
+        lineHeight = 26.sp
     ),
     titleLarge = TextStyle(
         fontFamily = HeadlineFamily,
         fontWeight = FontWeight.SemiBold,
         fontSize = 20.sp,
-        lineHeight = 28.sp
+        lineHeight = 28.sp,
+        letterSpacing = (-0.2).sp
     ),
     titleMedium = TextStyle(
         fontFamily = BodyFamily,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 16.sp,
-        lineHeight = 24.sp
+        fontSize = 15.sp,
+        lineHeight = 22.sp
     ),
     titleSmall = TextStyle(
         fontFamily = BodyFamily,
         fontWeight = FontWeight.Medium,
-        fontSize = 14.sp,
-        lineHeight = 20.sp
+        fontSize = 13.sp,
+        lineHeight = 18.sp
     ),
     bodyLarge = TextStyle(
         fontFamily = BodyFamily,
         fontWeight = FontWeight.Normal,
-        fontSize = 17.sp,
-        lineHeight = 26.sp
+        fontSize = 16.sp,
+        lineHeight = 24.sp
     ),
     bodyMedium = TextStyle(
         fontFamily = BodyFamily,
         fontWeight = FontWeight.Normal,
-        fontSize = 15.sp,
-        lineHeight = 22.sp
+        fontSize = 14.sp,
+        lineHeight = 20.sp
     ),
     bodySmall = TextStyle(
         fontFamily = BodyFamily,
         fontWeight = FontWeight.Normal,
-        fontSize = 13.sp,
-        lineHeight = 18.sp
+        fontSize = 12.sp,
+        lineHeight = 16.sp
     ),
     labelLarge = TextStyle(
         fontFamily = BodyFamily,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 14.sp,
-        lineHeight = 20.sp,
-        letterSpacing = 0.14.sp
+        fontWeight = FontWeight.Bold,
+        fontSize = 13.sp,
+        lineHeight = 18.sp,
+        letterSpacing = 0.5.sp
     ),
     labelMedium = TextStyle(
         fontFamily = BodyFamily,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 12.sp,
+        fontWeight = FontWeight.Bold,
+        fontSize = 11.sp,
         lineHeight = 16.sp,
-        letterSpacing = 0.24.sp
+        letterSpacing = 0.8.sp
     ),
     labelSmall = TextStyle(
         fontFamily = BodyFamily,
-        fontWeight = FontWeight.Medium,
-        fontSize = 11.sp,
-        lineHeight = 14.sp,
-        letterSpacing = 0.33.sp
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 9.sp,
+        lineHeight = 12.sp,
+        letterSpacing = 0.6.sp
     )
 )

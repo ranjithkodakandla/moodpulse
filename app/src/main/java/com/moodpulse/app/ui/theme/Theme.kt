@@ -92,7 +92,7 @@ fun MoodPulseTheme(
         SideEffect {
             val window = (view.context as? android.app.Activity)?.window
             window?.let {
-                it.statusBarColor = Color.Transparent.hashCode()
+                it.statusBarColor = android.graphics.Color.TRANSPARENT
                 WindowCompat.getInsetsController(it, view).isAppearanceLightStatusBars = !darkTheme
             }
         }

@@ -7,7 +7,9 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -33,8 +35,7 @@ import com.moodpulse.app.ui.settings.SettingsScreen
 import com.moodpulse.app.ui.settings.SettingsViewModel
 import com.moodpulse.app.ui.smartcontext.DigitalHabitsScreen
 import com.moodpulse.app.ui.smartcontext.SmartContextOnboardingScreen
-
-import com.moodpulse.app.ui.theme.AppIcons
+import com.moodpulse.app.ui.theme.*
 
 sealed class Screen(val route: String, val label: String, val icon: ImageVector) {
     object Home : Screen("home", "Today", Icons.Default.Home)
@@ -86,7 +87,8 @@ fun MoodPulseNavGraph(container: AppContainer) {
     Scaffold(
         bottomBar = {
             NavigationBar(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                containerColor = ObsidianBottomNav,
+                tonalElevation = 0.dp
             ) {
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
                 val currentDestination = navBackStackEntry?.destination
@@ -103,9 +105,11 @@ fun MoodPulseNavGraph(container: AppContainer) {
                             }
                         },
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.primaryContainer,
-                            selectedTextColor = MaterialTheme.colorScheme.primaryContainer,
-                            indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f)
+                            selectedIconColor = MintAccent,
+                            selectedTextColor = MintAccent,
+                            unselectedIconColor = TextLight.copy(alpha = 0.35f),
+                            unselectedTextColor = TextLight.copy(alpha = 0.35f),
+                            indicatorColor = Color(0x1FA8D5A2)
                         )
                     )
                 }
@@ -218,7 +222,7 @@ fun MoodPulseNavGraph(container: AppContainer) {
                 editEntryId = null
                 logVm.reset()
             },
-            containerColor = MaterialTheme.colorScheme.background
+            containerColor = ObsidianBg
         ) {
             LogMoodSheet(
                 state = logState,

@@ -2,10 +2,15 @@ package com.moodpulse.app.ui.settings
 
 import android.app.TimePickerDialog
 import android.content.Intent
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
@@ -13,10 +18,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.moodpulse.app.smartcontext.SmartContextUiState
-import com.moodpulse.app.ui.theme.AppIcons
+import com.moodpulse.app.ui.theme.*
 import java.time.LocalDateTime
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -26,9 +35,9 @@ fun SettingsScreen(
     onRemindersToggled: (Boolean) -> Unit,
     onReminderTimeSet: (Int, Int) -> Unit,
     onThemeChanged: (String) -> Unit,
-    onExportJson: (android.net.Uri) -> Unit,
-    onExportCsv: (android.net.Uri) -> Unit,
-    onImport: (android.net.Uri) -> Unit,
+    onExportJson: (Uri) -> Unit,
+    onExportCsv: (Uri) -> Unit,
+    onImport: (Uri) -> Unit,
     onDeleteAllRequest: () -> Unit,
     onDeleteAllConfirm: () -> Unit,
     onDeleteDismiss: () -> Unit,
@@ -54,25 +63,60 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Settings", style = MaterialTheme.typography.titleLarge) },
+                title = {
+                    Text(
+                        "Settings",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = TextLight,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
+                    containerColor = ObsidianBg
                 )
             )
         },
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = ObsidianBg
     ) { padding ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // Reminders section
+            // ── Gemma On-device AI Card (Prototype Inspired) ──
             item {
-                SettingsSectionHeader("Reminders")
+                GemmaAiSettingsCard()
             }
+
+            // ── Smart Context & Digital Habits ──
+            item { SettingsSectionHeader("Smart Context & Digital Habits") }
+            item {
+                SettingsCard {
+                    SettingsRow(
+                        icon = AppIcons.Psychology,
+                        title = "Smart Context",
+                        subtitle = if (smartContextState.prefs.monitoringEnabled)
+                            "Monitoring usage patterns on-device"
+                        else
+                            "Off — tap to enable",
+                        action = {
+                            Switch(
+                                checked = smartContextState.prefs.monitoringEnabled,
+                                onCheckedChange = onSmartContextToggle,
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color(0xFF003D14),
+                                    checkedTrackColor = EmeraldGlow
+                                )
+                            )
+                        }
+                    )
+                }
+            }
+
+            // ── Reminders ──
+            item { SettingsSectionHeader("Reminders") }
             item {
                 SettingsCard {
                     SettingsRow(
@@ -82,27 +126,34 @@ fun SettingsScreen(
                         action = {
                             Switch(
                                 checked = uiState.preferences.remindersEnabled,
-                                onCheckedChange = onRemindersToggled
+                                onCheckedChange = onRemindersToggled,
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color(0xFF003D14),
+                                    checkedTrackColor = EmeraldGlow
+                                )
                             )
                         }
                     )
                     if (uiState.preferences.remindersEnabled) {
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                        HorizontalDivider(color = Color(0x14FFFFFF))
                         SettingsRow(
                             icon = AppIcons.Schedule,
                             title = "Reminder time",
-                            subtitle = formatTime(uiState.preferences.reminderHour, uiState.preferences.reminderMinute),
+                            subtitle = formatTime(
+                                uiState.preferences.reminderHour,
+                                uiState.preferences.reminderMinute
+                            ),
                             action = {
                                 TextButton(onClick = {
                                     TimePickerDialog(
                                         context,
-                                        { _, h, m -> onReminderTimeSet(h, m) },
+                                        { _, hour, minute -> onReminderTimeSet(hour, minute) },
                                         uiState.preferences.reminderHour,
                                         uiState.preferences.reminderMinute,
                                         false
                                     ).show()
                                 }) {
-                                    Text("Change")
+                                    Text("Change", color = EmeraldGlow, fontWeight = FontWeight.Bold)
                                 }
                             }
                         )
@@ -110,119 +161,79 @@ fun SettingsScreen(
                 }
             }
 
-            // Appearance
+            // ── Appearance ──
             item { SettingsSectionHeader("Appearance") }
             item {
                 SettingsCard {
-                    val themes = listOf("system" to "System default", "light" to "Light", "dark" to "Dark")
-                    themes.forEachIndexed { idx, (mode, label) ->
+                    val themes = listOf(
+                        Triple("system", "System default", AppIcons.BrightnessAuto),
+                        Triple("light", "Light", AppIcons.LightMode),
+                        Triple("dark", "Dark", AppIcons.DarkMode)
+                    )
+                    themes.forEachIndexed { idx, (mode, label, icon) ->
                         SettingsRow(
-                            icon = when (mode) {
-                                "light" -> AppIcons.LightMode
-                                "dark" -> AppIcons.DarkMode
-                                else -> AppIcons.BrightnessAuto
-                            },
+                            icon = icon,
                             title = label,
                             action = {
                                 RadioButton(
                                     selected = uiState.preferences.themeMode == mode,
-                                    onClick = { onThemeChanged(mode) }
+                                    onClick = { onThemeChanged(mode) },
+                                    colors = RadioButtonDefaults.colors(
+                                        selectedColor = EmeraldGlow
+                                    )
                                 )
                             }
                         )
                         if (idx < themes.size - 1) {
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                            HorizontalDivider(color = Color(0x14FFFFFF))
                         }
                     }
                 }
             }
 
-            // Smart Context
-            item { SettingsSectionHeader("Smart Context & Digital Habits") }
-            item {
-                SettingsCard {
-                    SettingsRow(
-                        icon = AppIcons.Psychology,
-                        title = "Smart Context",
-                        subtitle = if (smartContextState.prefs.monitoringEnabled)
-                            "Monitoring app usage patterns"
-                        else
-                            "Off — tap to enable",
-                        action = {
-                            Switch(
-                                checked = smartContextState.prefs.monitoringEnabled,
-                                onCheckedChange = onSmartContextToggle
-                            )
-                        }
-                    )
-                    if (smartContextState.prefs.monitoringEnabled && !smartContextState.hasPermission) {
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text(
-                                text = "Usage Access permission is required for Smart Context to work.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error
-                            )
-                        }
-                    }
-                }
-            }
-
-            // Data
+            // ── Data & Privacy ──
             item { SettingsSectionHeader("Data & Privacy") }
             item {
                 SettingsCard {
                     SettingsRow(
                         icon = AppIcons.Download,
                         title = "Export as JSON",
-                        subtitle = "${uiState.totalEntries} entries",
+                        subtitle = "Full backup (${uiState.totalEntries} entries)",
                         onClick = {
-                            val ts = LocalDateTime.now().toString().replace(":", "-").take(16)
-                            jsonExportLauncher.launch("moodpulse-export-$ts.json")
+                            val filename = "moodpulse_backup_${LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmm"))}.json"
+                            jsonExportLauncher.launch(filename)
                         }
                     )
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    HorizontalDivider(color = Color(0x14FFFFFF))
                     SettingsRow(
                         icon = AppIcons.TableChart,
                         title = "Export as CSV",
                         subtitle = "Open in spreadsheet apps",
                         onClick = {
-                            val ts = LocalDateTime.now().toString().replace(":", "-").take(16)
-                            csvExportLauncher.launch("moodpulse-export-$ts.csv")
+                            val filename = "moodpulse_entries_${LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd_HHmm"))}.csv"
+                            csvExportLauncher.launch(filename)
                         }
                     )
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    HorizontalDivider(color = Color(0x14FFFFFF))
                     SettingsRow(
                         icon = AppIcons.Upload,
                         title = "Restore from backup",
                         subtitle = "Import a JSON backup",
                         onClick = { importLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) }
                     )
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    HorizontalDivider(color = Color(0x14FFFFFF))
                     SettingsRow(
                         icon = AppIcons.DeleteForever,
                         title = "Delete all data",
-                        titleColor = MaterialTheme.colorScheme.error,
+                        titleColor = MoodVeryLow,
                         subtitle = "This cannot be undone",
                         onClick = onDeleteAllRequest
                     )
                 }
             }
 
-            // Privacy info
-            item { SettingsSectionHeader("Privacy") }
-            item {
-                SettingsCard {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("🔒 All your mood data is stored locally on this device.", style = MaterialTheme.typography.bodySmall)
-                        Text("📵 MoodPulse does not have internet access and never transmits your data.", style = MaterialTheme.typography.bodySmall)
-                        Text("🗑 You can delete all data at any time from the option above.", style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-            }
-
-            // About
-            item { SettingsSectionHeader("About") }
+            // ── App Info & Privacy Statement ──
+            item { SettingsSectionHeader("About & Compliance") }
             item {
                 SettingsCard {
                     SettingsRow(
@@ -233,7 +244,36 @@ fun SettingsScreen(
                 }
             }
 
-            item { Spacer(Modifier.height(80.dp)) }
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Color(0x06FFFFFF))
+                        .border(1.dp, Color(0x10FFFFFF), RoundedCornerShape(14.dp))
+                        .padding(14.dp)
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            text = "🔒 All mood data in app-private SQLite. Never transmitted.",
+                            fontSize = 11.sp,
+                            color = TextLight.copy(alpha = 0.5f)
+                        )
+                        Text(
+                            text = "✦ Gemma AI runs 100% on-device. Zero data leaves your phone.",
+                            fontSize = 11.sp,
+                            color = TextLight.copy(alpha = 0.5f)
+                        )
+                        Text(
+                            text = "📵 No analytics, no ads, no cloud backend, no tracking SDKs.",
+                            fontSize = 11.sp,
+                            color = TextLight.copy(alpha = 0.5f)
+                        )
+                    }
+                }
+            }
+
+            item { Spacer(Modifier.height(84.dp)) }
         }
     }
 
@@ -241,21 +281,22 @@ fun SettingsScreen(
     if (uiState.showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = onDeleteDismiss,
-            title = { Text("Delete all data?") },
-            text = { Text("This will permanently delete all ${uiState.totalEntries} mood entries. This cannot be undone.") },
+            title = { Text("Delete all data?", color = TextLight, fontWeight = FontWeight.Bold) },
+            text = { Text("This will permanently delete all ${uiState.totalEntries} mood check-ins. This action cannot be reversed.", color = TextLight.copy(alpha = 0.7f)) },
             confirmButton = {
                 TextButton(
                     onClick = onDeleteAllConfirm,
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                ) { Text("Delete all") }
+                    colors = ButtonDefaults.textButtonColors(contentColor = MoodVeryLow)
+                ) { Text("Delete all", fontWeight = FontWeight.Bold) }
             },
             dismissButton = {
-                TextButton(onClick = onDeleteDismiss) { Text("Cancel") }
-            }
+                TextButton(onClick = onDeleteDismiss) { Text("Cancel", color = TextLight.copy(alpha = 0.6f)) }
+            },
+            containerColor = ObsidianCard
         )
     }
 
-    // Messages
+    // Feedback message snackbar
     val message = uiState.importSuccess ?: uiState.importError ?: uiState.exportError
     if (message != null) {
         LaunchedEffect(message) {
@@ -265,10 +306,102 @@ fun SettingsScreen(
         Snackbar(
             modifier = Modifier.padding(16.dp),
             containerColor = if (uiState.importError != null || uiState.exportError != null)
-                MaterialTheme.colorScheme.errorContainer
-            else MaterialTheme.colorScheme.primaryContainer
+                Color(0xFF93000A)
+            else EmeraldGlow
         ) {
-            Text(message)
+            Text(message, color = if (uiState.importError != null || uiState.exportError != null) Color.White else Color(0xFF003D14))
+        }
+    }
+}
+
+@Composable
+private fun GemmaAiSettingsCard() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(
+                androidx.compose.ui.graphics.Brush.linearGradient(
+                    colors = listOf(Color(0x1F00C853), Color(0x0A004F1A))
+                )
+            )
+            .border(1.dp, Color(0x3800C853), RoundedCornerShape(16.dp))
+            .padding(16.dp)
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(RoundedCornerShape(9.dp))
+                        .background(Color(0x3300C853)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("✦", fontSize = 16.sp, color = EmeraldGlow)
+                }
+                Column {
+                    Text(
+                        text = "Gemma On-device AI",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = EmeraldGlow
+                    )
+                    Text(
+                        text = "Free · INT4 Quant · Runs fully offline",
+                        fontSize = 10.sp,
+                        color = TextLight.copy(alpha = 0.45f)
+                    )
+                }
+            }
+
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                listOf(
+                    "Smart feeling tag suggestions from your notes",
+                    "Personalised weekly mood insights",
+                    "Conversational check-in companion",
+                    "Pattern detection across 30+ days",
+                    "Mindful spending & distraction pause warnings"
+                ).forEach { feature ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text("✦", fontSize = 8.sp, color = EmeraldGlow)
+                        Text(
+                            text = feature,
+                            fontSize = 11.sp,
+                            color = TextLight.copy(alpha = 0.7f)
+                        )
+                    }
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(50))
+                    .background(EmeraldGlow)
+                    .padding(vertical = 11.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "⬇ Download Gemma 2B",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color(0xFF003D14)
+                )
+            }
+
+            Text(
+                text = "One-time download. All inference runs on your device. Zero data leaves your phone.",
+                fontSize = 9.sp,
+                color = TextLight.copy(alpha = 0.35f),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }
@@ -277,19 +410,22 @@ fun SettingsScreen(
 private fun SettingsSectionHeader(title: String) {
     Text(
         text = title.uppercase(),
-        style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+        fontSize = 10.sp,
+        fontWeight = FontWeight.ExtraBold,
+        letterSpacing = 1.2.sp,
+        color = TextLight.copy(alpha = 0.35f),
+        modifier = Modifier.padding(top = 8.dp, bottom = 2.dp)
     )
 }
 
 @Composable
 private fun SettingsCard(content: @Composable ColumnScope.() -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        elevation = CardDefaults.cardElevation(0.dp)
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color(0x0AFFFFFF))
+            .border(1.dp, Color(0x14FFFFFF), RoundedCornerShape(16.dp))
     ) {
         Column { content() }
     }
@@ -300,37 +436,52 @@ private fun SettingsRow(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     title: String,
     subtitle: String? = null,
-    titleColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurface,
+    titleColor: Color = TextLight,
     action: (@Composable () -> Unit)? = null,
     onClick: (() -> Unit)? = null
 ) {
-    val modifier = if (onClick != null)
-        Modifier.fillMaxWidth()
-    else Modifier.fillMaxWidth()
-
-    Surface(
-        onClick = onClick ?: {},
-        enabled = onClick != null,
-        modifier = modifier,
-        color = androidx.compose.ui.graphics.Color.Transparent
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Icon(
-                icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(20.dp)
-            )
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(RoundedCornerShape(9.dp))
+                    .background(Color(0x14FFFFFF)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    tint = TextLight.copy(alpha = 0.8f),
+                    modifier = Modifier.size(17.dp)
+                )
+            }
+
             Column(modifier = Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.bodyMedium, color = titleColor)
+                Text(
+                    text = title,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = titleColor
+                )
                 if (subtitle != null) {
-                    Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        text = subtitle,
+                        fontSize = 10.sp,
+                        color = TextLight.copy(alpha = 0.4f)
+                    )
                 }
             }
+
             action?.invoke()
         }
     }

@@ -8,12 +8,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import com.moodpulse.app.ui.theme.AppIcons
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -22,13 +22,12 @@ import androidx.compose.ui.unit.sp
 import com.moodpulse.app.data.db.MoodEntry
 import com.moodpulse.app.domain.Mood
 import com.moodpulse.app.ui.components.EmptyState
-import com.moodpulse.app.ui.home.MoodEntryCard
-import com.moodpulse.app.ui.theme.moodColor
+import com.moodpulse.app.ui.components.MoodEntryCard
+import com.moodpulse.app.ui.components.SectionHeader
+import com.moodpulse.app.ui.theme.*
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
-import java.time.format.TextStyle
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,23 +44,26 @@ fun HistoryScreen(
                 title = {
                     Text(
                         "History",
-                        style = MaterialTheme.typography.titleLarge
+                        style = MaterialTheme.typography.titleLarge,
+                        color = TextLight,
+                        fontWeight = FontWeight.Bold
                     )
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
+                    containerColor = ObsidianBg
                 )
             )
         },
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = ObsidianBg
     ) { paddingValues ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
+            // ── Month Calendar ──
             item {
                 MoodCalendar(
                     displayMonth = displayMonth,
@@ -73,12 +75,18 @@ fun HistoryScreen(
                 )
             }
 
+            // ── Year-in-Pixels (Pixels app-inspired 90-day grid) ──
             item {
-                Text(
-                    text = formatSelectedDate(uiState.selectedDate),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp)
+                YearInPixelsCard(
+                    entriesByDate = uiState.entriesByDate,
+                    onDateSelected = onDateSelected
+                )
+            }
+
+            // ── Selected Day Check-ins ──
+            item {
+                SectionHeader(
+                    title = formatSelectedDate(uiState.selectedDate)
                 )
             }
 
@@ -86,8 +94,8 @@ fun HistoryScreen(
                 item {
                     EmptyState(
                         emoji = "📅",
-                        message = "No entries on this day",
-                        subMessage = "Tap a date with a dot to see entries"
+                        message = "No check-ins on this day",
+                        subMessage = "Tap any date with a glowing dot to view check-ins"
                     )
                 }
             } else {
@@ -96,7 +104,7 @@ fun HistoryScreen(
                 }
             }
 
-            item { Spacer(Modifier.height(80.dp)) }
+            item { Spacer(Modifier.height(84.dp)) }
         }
     }
 }
@@ -110,26 +118,30 @@ private fun MoodCalendar(
     onDateSelected: (LocalDate) -> Unit,
     onMonthChange: (YearMonth) -> Unit
 ) {
-    Card(
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-        ),
-        elevation = CardDefaults.cardElevation(0.dp)
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color(0x0AFFFFFF))
+            .border(1.dp, Color(0x14FFFFFF), RoundedCornerShape(16.dp))
+            .padding(14.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            // Month header
+        Column {
+            // Month navigation header
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = { onMonthChange(displayMonth.minusMonths(1)) }) {
-                    Icon(AppIcons.ChevronLeft, contentDescription = "Previous month")
+                    Icon(AppIcons.ChevronLeft, contentDescription = "Previous month", tint = TextLight.copy(alpha = 0.6f))
                 }
                 Text(
                     text = displayMonth.format(DateTimeFormatter.ofPattern("MMMM yyyy")),
-                    style = MaterialTheme.typography.titleMedium
+                    fontFamily = HeadlineFamily,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextLight
                 )
                 IconButton(onClick = {
                     if (displayMonth < YearMonth.now()) onMonthChange(displayMonth.plusMonths(1))
@@ -137,9 +149,7 @@ private fun MoodCalendar(
                     Icon(
                         AppIcons.ChevronRight,
                         contentDescription = "Next month",
-                        tint = if (displayMonth < YearMonth.now())
-                            MaterialTheme.colorScheme.onSurface
-                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                        tint = if (displayMonth < YearMonth.now()) TextLight.copy(alpha = 0.6f) else TextLight.copy(alpha = 0.15f)
                     )
                 }
             }
@@ -154,13 +164,14 @@ private fun MoodCalendar(
                         text = day,
                         modifier = Modifier.weight(1f),
                         textAlign = TextAlign.Center,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextLight.copy(alpha = 0.28f)
                     )
                 }
             }
 
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(6.dp))
 
             // Calendar grid
             val firstDayOfMonth = displayMonth.atDay(1)
@@ -186,7 +197,7 @@ private fun MoodCalendar(
                                 entriesByDate[date]?.map { it.mood }?.average()?.toInt()
                             } else null
 
-                            CalendarDay(
+                            CalendarDayCell(
                                 day = dayOfMonth,
                                 isSelected = isSelected,
                                 isToday = isToday,
@@ -204,7 +215,7 @@ private fun MoodCalendar(
 }
 
 @Composable
-private fun CalendarDay(
+private fun CalendarDayCell(
     day: Int,
     isSelected: Boolean,
     isToday: Boolean,
@@ -216,12 +227,18 @@ private fun CalendarDay(
     Box(
         modifier = modifier
             .aspectRatio(1f)
-            .padding(2.dp)
+            .padding(2.5.dp)
             .clip(CircleShape)
             .then(
-                if (isSelected) Modifier.background(MaterialTheme.colorScheme.primaryContainer)
-                else if (isToday) Modifier.border(1.5.dp, MaterialTheme.colorScheme.outline, CircleShape)
-                else Modifier
+                when {
+                    isToday -> Modifier
+                        .shadow(elevation = 6.dp, shape = CircleShape, ambientColor = EmeraldGlow, spotColor = EmeraldGlow)
+                        .background(EmeraldGlow)
+                    isSelected -> Modifier
+                        .background(Color(0x2E00C853))
+                        .border(1.dp, EmeraldGlow, CircleShape)
+                    else -> Modifier
+                }
             )
             .clickable(enabled = !isFuture, onClick = onClick),
         contentAlignment = Alignment.Center
@@ -232,24 +249,113 @@ private fun CalendarDay(
         ) {
             Text(
                 text = day.toString(),
-                style = MaterialTheme.typography.labelMedium,
+                fontSize = 11.sp,
+                fontWeight = if (isToday) FontWeight.ExtraBold else FontWeight.SemiBold,
                 color = when {
-                    isSelected -> MaterialTheme.colorScheme.onPrimaryContainer
-                    isFuture -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
-                    else -> MaterialTheme.colorScheme.onSurface
-                },
-                fontSize = 12.sp
+                    isToday -> Color(0xFF003D14)
+                    isSelected -> EmeraldGlow
+                    isFuture -> TextLight.copy(alpha = 0.2f)
+                    else -> TextLight
+                }
             )
-            if (avgMoodValue != null) {
+            if (avgMoodValue != null && !isToday) {
                 Box(
                     modifier = Modifier
                         .size(4.dp)
-                        .background(
-                            color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
-                            else moodColor(avgMoodValue),
-                            shape = CircleShape
-                        )
+                        .clip(CircleShape)
+                        .background(moodColor(avgMoodValue))
                 )
+            }
+        }
+    }
+}
+
+/**
+ * 90-Day "Year in Pixels" Grid (inspired by the Pixels mood tracking app).
+ */
+@Composable
+private fun YearInPixelsCard(
+    entriesByDate: Map<LocalDate, List<MoodEntry>>,
+    onDateSelected: (LocalDate) -> Unit
+) {
+    val today = remember { LocalDate.now() }
+    val daysCount = 91 // 13 columns * 7 rows = 91 days
+    val dates = remember(today) {
+        (0 until daysCount).map { today.minusDays((daysCount - 1 - it).toLong()) }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color(0x0AFFFFFF))
+            .border(1.dp, Color(0x14FFFFFF), RoundedCornerShape(16.dp))
+            .padding(14.dp)
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            // Header with legend
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "90 days",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextLight.copy(alpha = 0.8f)
+                )
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    listOf(MoodVeryLow, MoodLow, MoodOkay, MoodGood, MoodGreat).forEach { color ->
+                        Box(
+                            modifier = Modifier
+                                .size(7.dp)
+                                .clip(RoundedCornerShape(2.dp))
+                                .background(color)
+                        )
+                    }
+                    Text(
+                        text = "V.Low → Great",
+                        fontSize = 8.sp,
+                        color = TextLight.copy(alpha = 0.35f),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+
+            // 13 columns x 7 rows pixel grid
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                for (row in 0 until 7) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(3.dp)
+                    ) {
+                        for (col in 0 until 13) {
+                            val index = col * 7 + row
+                            if (index < dates.size) {
+                                val date = dates[index]
+                                val entries = entriesByDate[date]
+                                val avgMood = entries?.map { it.mood }?.average()?.toInt()
+                                val cellColor = if (avgMood != null) moodColor(avgMood) else Color(0x0EFFFFFF)
+
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .aspectRatio(1f)
+                                        .clip(RoundedCornerShape(2.5.dp))
+                                        .background(cellColor)
+                                        .clickable { onDateSelected(date) }
+                                )
+                            } else {
+                                Spacer(Modifier.weight(1f))
+                            }
+                        }
+                    }
+                }
             }
         }
     }
