@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.moodpulse.app.smartcontext.SmartContextUiState
 import java.time.LocalDateTime
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -31,7 +32,9 @@ fun SettingsScreen(
     onDeleteAllConfirm: () -> Unit,
     onDeleteDismiss: () -> Unit,
     onClearMessages: () -> Unit,
-    appVersion: String
+    appVersion: String,
+    smartContextState: SmartContextUiState = SmartContextUiState(),
+    onSmartContextToggle: (Boolean) -> Unit = {}
 ) {
     val context = LocalContext.current
 
@@ -128,6 +131,37 @@ fun SettingsScreen(
                         )
                         if (idx < themes.size - 1) {
                             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                        }
+                    }
+                }
+            }
+
+            // Smart Context
+            item { SettingsSectionHeader("Smart Context & Digital Habits") }
+            item {
+                SettingsCard {
+                    SettingsRow(
+                        icon = Icons.Outlined.Psychology,
+                        title = "Smart Context",
+                        subtitle = if (smartContextState.prefs.monitoringEnabled)
+                            "Monitoring app usage patterns"
+                        else
+                            "Off — tap to enable",
+                        action = {
+                            Switch(
+                                checked = smartContextState.prefs.monitoringEnabled,
+                                onCheckedChange = onSmartContextToggle
+                            )
+                        }
+                    )
+                    if (smartContextState.prefs.monitoringEnabled && !smartContextState.hasPermission) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                text = "Usage Access permission is required for Smart Context to work.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
                         }
                     }
                 }

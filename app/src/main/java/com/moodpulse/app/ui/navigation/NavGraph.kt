@@ -17,6 +17,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.moodpulse.app.AppContainer
+import com.moodpulse.app.smartcontext.SmartContextViewModel
 import com.moodpulse.app.ui.history.HistoryScreen
 import com.moodpulse.app.ui.history.HistoryViewModel
 import com.moodpulse.app.ui.home.HomeScreen
@@ -27,15 +28,18 @@ import com.moodpulse.app.ui.log.LogMoodSheet
 import com.moodpulse.app.ui.log.LogMoodViewModel
 import com.moodpulse.app.ui.settings.SettingsScreen
 import com.moodpulse.app.ui.settings.SettingsViewModel
+import com.moodpulse.app.ui.smartcontext.DigitalHabitsScreen
+import com.moodpulse.app.ui.smartcontext.SmartContextOnboardingScreen
 
 sealed class Screen(val route: String, val label: String, val icon: ImageVector) {
     object Home : Screen("home", "Today", Icons.Outlined.Home)
     object History : Screen("history", "History", Icons.Outlined.CalendarMonth)
     object Insights : Screen("insights", "Pulse", Icons.Outlined.BarChart)
+    object Habits : Screen("habits", "Habits", Icons.Outlined.Insights)
     object Settings : Screen("settings", "Settings", Icons.Outlined.Tune)
 }
 
-val bottomNavItems = listOf(Screen.Home, Screen.History, Screen.Insights, Screen.Settings)
+val bottomNavItems = listOf(Screen.Home, Screen.History, Screen.Insights, Screen.Habits, Screen.Settings)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,6 +50,11 @@ fun MoodPulseNavGraph(container: AppContainer) {
 
     val logVm: LogMoodViewModel = viewModel(factory = LogMoodViewModel.Factory(container.moodRepository))
     val logState by logVm.state.collectAsStateWithLifecycle()
+
+    val smartContextVm: SmartContextViewModel = viewModel(
+        factory = SmartContextViewModel.Factory(container.database, container.context)
+    )
+    val smartContextState by smartContextVm.uiState.collectAsStateWithLifecycle()
 
     // Auto-close sheet on save
     LaunchedEffect(logState.saved) {
@@ -91,7 +100,9 @@ fun MoodPulseNavGraph(container: AppContainer) {
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(Screen.Home.route) {
-                val vm: HomeViewModel = viewModel(factory = HomeViewModel.Factory(container.moodRepository))
+                val vm: HomeViewModel = viewModel(
+                    factory = HomeViewModel.Factory(container.moodRepository, container.database)
+                )
                 val state by vm.uiState.collectAsStateWithLifecycle()
                 HomeScreen(
                     uiState = state,
@@ -101,7 +112,10 @@ fun MoodPulseNavGraph(container: AppContainer) {
                         editEntryId = id
                         logVm.loadForEdit(id)
                         showLogSheet = true
-                    }
+                    },
+                    onSuggestionConfirm = smartContextVm::confirmSuggestion,
+                    onSuggestionDismiss = smartContextVm::dismissSuggestion,
+                    pendingSuggestion = smartContextState.pendingSuggestion
                 )
             }
             composable(Screen.History.route) {
@@ -121,6 +135,25 @@ fun MoodPulseNavGraph(container: AppContainer) {
                 val vm: InsightsViewModel = viewModel(factory = InsightsViewModel.Factory(container.moodRepository))
                 val state by vm.uiState.collectAsStateWithLifecycle()
                 InsightsScreen(uiState = state)
+            }
+            composable(Screen.Habits.route) {
+                DigitalHabitsScreen(
+                    uiState = smartContextState,
+                    viewModel = smartContextVm,
+                    onNavigateToOnboarding = { navController.navigate("smart_context_onboarding") },
+                    onBack = { navController.popBackStack() }
+                )
+            }
+            composable("smart_context_onboarding") {
+                SmartContextOnboardingScreen(
+                    hasPermission = smartContextState.hasPermission,
+                    onOpenPermissionSettings = smartContextVm::openPermissionSettings,
+                    onEnable = {
+                        smartContextVm.setMonitoringEnabled(true)
+                        navController.popBackStack()
+                    },
+                    onBack = { navController.popBackStack() }
+                )
             }
             composable(Screen.Settings.route) {
                 val vm: SettingsViewModel = viewModel(
@@ -143,7 +176,15 @@ fun MoodPulseNavGraph(container: AppContainer) {
                     onDeleteAllConfirm = vm::deleteAllData,
                     onDeleteDismiss = vm::dismissDeleteConfirm,
                     onClearMessages = vm::clearMessages,
-                    appVersion = container.appVersion
+                    appVersion = container.appVersion,
+                    smartContextState = smartContextState,
+                    onSmartContextToggle = { enabled ->
+                        if (enabled && !smartContextState.hasPermission) {
+                            navController.navigate("smart_context_onboarding")
+                        } else {
+                            smartContextVm.setMonitoringEnabled(enabled)
+                        }
+                    }
                 )
             }
         }

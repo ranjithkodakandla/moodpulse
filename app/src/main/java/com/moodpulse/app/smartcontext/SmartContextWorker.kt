@@ -5,6 +5,7 @@ import androidx.work.*
 import com.moodpulse.app.MoodPulseApp
 import com.moodpulse.app.data.db.MoodDatabase
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -59,7 +60,7 @@ class SmartContextWorker(
 
             db.behaviouralObservationDao().insertAll(analysis.observations)
 
-            val recentMoods = db.moodDao().getRecentEntries(10)
+            val recentMoods = db.moodDao().getRecentEntries(10).first()
             val engine = SuggestionEngine(container.gemmaEngine)
             val suggestion = engine.generateSuggestion(analysis.observations, recentMoods)
                 ?: return@withContext Result.success()

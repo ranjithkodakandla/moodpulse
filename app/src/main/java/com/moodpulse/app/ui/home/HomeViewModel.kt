@@ -3,6 +3,7 @@ package com.moodpulse.app.ui.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.moodpulse.app.data.db.MoodDatabase
 import com.moodpulse.app.data.db.MoodEntry
 import com.moodpulse.app.data.repository.MoodRepository
 import com.moodpulse.app.domain.InsightsEngine
@@ -56,7 +57,10 @@ class HomeViewModel(private val repository: MoodRepository) : ViewModel() {
         initialValue = HomeUiState()
     )
 
-    class Factory(private val repository: MoodRepository) : ViewModelProvider.Factory {
+    class Factory(
+        private val repository: MoodRepository,
+        @Suppress("UNUSED_PARAMETER") private val database: MoodDatabase? = null
+    ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T =
             HomeViewModel(repository) as T

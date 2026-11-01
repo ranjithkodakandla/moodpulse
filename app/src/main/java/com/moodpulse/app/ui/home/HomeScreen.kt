@@ -20,10 +20,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.moodpulse.app.data.db.MoodEntry
+import com.moodpulse.app.data.db.MoodSuggestion
 import com.moodpulse.app.domain.Mood
 import com.moodpulse.app.ui.components.EmptyState
 import com.moodpulse.app.ui.components.MoodDot
 import com.moodpulse.app.ui.components.SectionHeader
+import com.moodpulse.app.ui.smartcontext.SuggestionCard
 import com.moodpulse.app.ui.theme.moodColor
 import java.time.Instant
 import java.time.ZoneId
@@ -35,7 +37,10 @@ fun HomeScreen(
     uiState: HomeUiState,
     onLogMood: () -> Unit,
     onSettingsClick: () -> Unit,
-    onEntryClick: (Long) -> Unit
+    onEntryClick: (Long) -> Unit,
+    pendingSuggestion: MoodSuggestion? = null,
+    onSuggestionConfirm: (Long, Int, List<String>) -> Unit = { _, _, _ -> },
+    onSuggestionDismiss: (Long) -> Unit = {}
 ) {
     val greeting = remember {
         val hour = java.time.LocalTime.now().hour
@@ -152,6 +157,19 @@ fun HomeScreen(
             if (uiState.todayObservation != null) {
                 item {
                     ObservationCard(text = uiState.todayObservation)
+                }
+            }
+
+            // Smart Context suggestion card
+            if (pendingSuggestion != null) {
+                item {
+                    SuggestionCard(
+                        suggestion = pendingSuggestion,
+                        onConfirm = { mood, feelings ->
+                            onSuggestionConfirm(pendingSuggestion.id, mood, feelings)
+                        },
+                        onDismiss = onSuggestionDismiss
+                    )
                 }
             }
 

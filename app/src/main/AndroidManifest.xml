@@ -10,6 +10,15 @@
       Declared per Play Store Data Safety requirements (one-time asset download).
     -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!--
+      PACKAGE_USAGE_STATS is required for Smart Context (optional feature).
+      This is a special permission that must be granted by the user via Settings.
+      Only high-level app category usage is collected; no content is read.
+    -->
+    <uses-permission
+        android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions"
+        xmlns:tools="http://schemas.android.com/tools" />
 
     <application
         android:name=".MoodPulseApp"
