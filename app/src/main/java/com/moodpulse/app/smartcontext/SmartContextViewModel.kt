@@ -4,11 +4,13 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.moodpulse.app.MoodPulseApp
 import com.moodpulse.app.data.db.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 data class SmartContextUiState(
@@ -26,6 +28,9 @@ class SmartContextViewModel(
 ) : ViewModel() {
 
     private val usageCollector = UsageCollector(context)
+    private val suggestionEngine: SuggestionEngine by lazy {
+        (context.applicationContext as? MoodPulseApp)?.container?.suggestionEngine ?: SuggestionEngine(null)
+    }
 
     private val _uiState = MutableStateFlow(SmartContextUiState())
     val uiState: StateFlow<SmartContextUiState> = _uiState.asStateFlow()
@@ -59,6 +64,9 @@ class SmartContextViewModel(
                 }
             } catch (_: Exception) { /* db unavailable, stay on defaults */ }
         }
+
+        // Auto-refresh habit data and check if an AI suggestion should be generated
+        refreshHabits()
     }
 
     fun hasPermission(): Boolean = usageCollector.hasPermission()
@@ -66,6 +74,9 @@ class SmartContextViewModel(
     fun refreshPermission() {
         val granted = usageCollector.hasPermission()
         _uiState.update { it.copy(hasPermission = granted) }
+        if (granted) {
+            refreshHabits()
+        }
     }
 
     fun openPermissionSettings() {
@@ -84,18 +95,76 @@ class SmartContextViewModel(
             _uiState.update { it.copy(prefs = updated, hasPermission = usageCollector.hasPermission()) }
             if (enabled) {
                 SmartContextWorker.schedule(context)
-                // Collect recent aggregates so Digital Habits screen displays initial data
-                launch(Dispatchers.IO) {
-                    try {
-                        val aggregates = usageCollector.collectYesterdayAggregates()
-                        if (aggregates.isNotEmpty()) {
-                            db.appUsageAggregateDao().insertAll(aggregates)
-                        }
-                    } catch (_: Throwable) {}
-                }
+                refreshHabits(forceGenerateSuggestion = true)
             } else {
                 SmartContextWorker.cancel(context)
             }
+        }
+    }
+
+    fun refreshHabits(forceGenerateSuggestion: Boolean = false) {
+        if (!usageCollector.hasPermission()) return
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val today = usageCollector.collectTodayAggregates()
+                val yesterday = usageCollector.collectYesterdayAggregates()
+                val allRecent = today + yesterday
+                if (allRecent.isNotEmpty()) {
+                    db.appUsageAggregateDao().insertAll(allRecent)
+                }
+
+                val baselineFrom = LocalDate.now().minusDays(30).format(DateTimeFormatter.ISO_LOCAL_DATE)
+                val baselineData = db.appUsageAggregateDao().getSince(baselineFrom)
+                val analyser = BehaviourAnalyser()
+                val analysis = analyser.analyse(baselineData, if (today.isNotEmpty()) today else yesterday)
+
+                if (analysis.observations.isNotEmpty()) {
+                    db.behaviouralObservationDao().insertAll(analysis.observations)
+
+                    val existingPending = db.moodSuggestionDao().getPending()
+                    if (existingPending == null || forceGenerateSuggestion) {
+                        val recentMoods = db.moodDao().getRecentEntries(10).first()
+                        val suggestion = suggestionEngine.generateSuggestion(analysis.observations, recentMoods)
+                        if (suggestion != null) {
+                            db.moodSuggestionDao().insert(suggestion)
+                        }
+                    }
+                }
+            } catch (_: Throwable) {}
+        }
+    }
+
+    /** Manually triggers an AI Mindful Check-in from habits */
+    fun generateSuggestionFromHabits(targetCategory: String? = null) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val today = usageCollector.collectTodayAggregates()
+                val yesterday = usageCollector.collectYesterdayAggregates()
+                val activeData = if (today.isNotEmpty()) today else yesterday
+                val analyser = BehaviourAnalyser()
+                val baselineFrom = LocalDate.now().minusDays(30).format(DateTimeFormatter.ISO_LOCAL_DATE)
+                val baselineData = db.appUsageAggregateDao().getSince(baselineFrom)
+                val analysis = analyser.analyse(baselineData, activeData)
+
+                val obs = analysis.observations.ifEmpty {
+                    val cat = targetCategory ?: "SOCIAL"
+                    listOf(
+                        BehaviouralObservation(
+                            observationType = "HIGH_$cat",
+                            dateTime = System.currentTimeMillis(),
+                            baselineValue = 0f,
+                            currentValue = 45f,
+                            evidenceJson = """{"category":"$cat","reason":"manual_checkin"}"""
+                        )
+                    )
+                }
+                db.behaviouralObservationDao().insertAll(obs)
+                val recentMoods = db.moodDao().getRecentEntries(10).first()
+                val suggestion = suggestionEngine.generateSuggestion(obs, recentMoods)
+                if (suggestion != null) {
+                    db.moodSuggestionDao().insert(suggestion)
+                }
+            } catch (_: Throwable) {}
         }
     }
 
@@ -114,6 +183,20 @@ class SmartContextViewModel(
                 mood = confirmedMood,
                 feelings = confirmedFeelings.joinToString(",")
             )
+
+            // Insert real MoodEntry so it shows in today's timeline, streak, and charts!
+            val now = System.currentTimeMillis()
+            val entry = MoodEntry(
+                mood = confirmedMood,
+                timestampMs = now,
+                timezoneId = ZoneId.systemDefault().id,
+                feelingTags = confirmedFeelings,
+                note = "✦ Mindful Check-in via Smart Context digital habit tracking",
+                source = "smart_context",
+                createdAtMs = now,
+                updatedAtMs = now
+            )
+            db.moodDao().insert(entry)
         }
     }
 
@@ -131,6 +214,18 @@ class SmartContextViewModel(
                 mood = correctedMood,
                 feelings = correctedFeelings.joinToString(",")
             )
+            val now = System.currentTimeMillis()
+            val entry = MoodEntry(
+                mood = correctedMood,
+                timestampMs = now,
+                timezoneId = ZoneId.systemDefault().id,
+                feelingTags = correctedFeelings,
+                note = "✦ Mindful Check-in (adjusted) via Smart Context",
+                source = "smart_context",
+                createdAtMs = now,
+                updatedAtMs = now
+            )
+            db.moodDao().insert(entry)
         }
     }
 

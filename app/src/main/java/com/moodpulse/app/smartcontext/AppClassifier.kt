@@ -137,15 +137,29 @@ object AppClassifier {
 
     fun classify(packageName: String): AppCategory {
         packageMap[packageName]?.let { return it }
+        val lower = packageName.lowercase()
         return when {
-            packageName.contains("game") || packageName.contains("play") -> AppCategory.GAMING
-            packageName.contains("news") || packageName.contains("daily") -> AppCategory.NEWS
-            packageName.contains("bank") || packageName.contains("pay") || packageName.contains("finance") -> AppCategory.FINANCE
-            packageName.contains("shop") || packageName.contains("store") || packageName.contains("cart") -> AppCategory.SHOPPING
-            packageName.contains("social") || packageName.contains("chat") -> AppCategory.SOCIAL
-            packageName.contains("music") || packageName.contains("video") || packageName.contains("stream") -> AppCategory.ENTERTAINMENT
-            packageName.contains("learn") || packageName.contains("edu") || packageName.contains("study") -> AppCategory.EDUCATION
-            packageName.contains("health") || packageName.contains("fitness") || packageName.contains("medic") -> AppCategory.HEALTH
+            lower.contains("amazon") || lower.contains("flipkart") || lower.contains("myntra") ||
+            lower.contains("meesho") || lower.contains("ajio") || lower.contains("zomato") ||
+            lower.contains("swiggy") || lower.contains("zepto") || lower.contains("blinkit") ||
+            lower.contains("ebay") || lower.contains("shop") || lower.contains("store") ||
+            lower.contains("cart") || lower.contains("retail") || lower.contains("buy") -> AppCategory.SHOPPING
+
+            lower.contains("instagram") || lower.contains("facebook") || lower.contains("katana") ||
+            lower.contains("twitter") || lower.contains("threads") || lower.contains("snapchat") ||
+            lower.contains("reddit") || lower.contains("tiktok") || lower.contains("social") ||
+            lower.contains("chat") || lower.contains("wechat") || lower.contains("pinterest") -> AppCategory.SOCIAL
+
+            lower.contains("youtube") || lower.contains("netflix") || lower.contains("spotify") ||
+            lower.contains("hotstar") || lower.contains("primevideo") || lower.contains("music") ||
+            lower.contains("video") || lower.contains("stream") || lower.contains("tv") -> AppCategory.ENTERTAINMENT
+
+            lower.contains("game") || lower.contains("play") -> AppCategory.GAMING
+            lower.contains("news") || lower.contains("daily") -> AppCategory.NEWS
+            lower.contains("bank") || lower.contains("pay") || lower.contains("finance") || lower.contains("upi") -> AppCategory.FINANCE
+            lower.contains("doc") || lower.contains("sheet") || lower.contains("office") || lower.contains("note") || lower.contains("task") -> AppCategory.PRODUCTIVITY
+            lower.contains("learn") || lower.contains("edu") || lower.contains("study") -> AppCategory.EDUCATION
+            lower.contains("health") || lower.contains("fitness") || lower.contains("medic") || lower.contains("step") -> AppCategory.HEALTH
             else -> AppCategory.OTHER
         }
     }

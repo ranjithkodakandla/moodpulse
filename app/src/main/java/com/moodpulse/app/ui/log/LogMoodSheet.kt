@@ -4,6 +4,7 @@ import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.rememberScrollState
@@ -275,6 +276,72 @@ fun LogMoodSheet(
                 maxLines = 4,
                 singleLine = false
             )
+
+            // ── Real-Time On-Device AI Note Tag Detection ──
+            val detectedNoteTags = remember(state.note) {
+                if (state.note.isBlank()) emptyList()
+                else {
+                    val lower = state.note.lowercase()
+                    val list = linkedSetOf<FeelingTag>()
+                    if (lower.contains("anxious") || lower.contains("worry") || lower.contains("panic") || lower.contains("nervous") || lower.contains("fear")) list.add(FeelingTag.ANXIOUS)
+                    if (lower.contains("stress") || lower.contains("busy") || lower.contains("hectic") || lower.contains("overwhelm") || lower.contains("deadline") || lower.contains("pressure")) list.add(FeelingTag.STRESSED)
+                    if (lower.contains("tired") || lower.contains("exhaust") || lower.contains("sleep") || lower.contains("drained") || lower.contains("fatigue")) list.add(FeelingTag.TIRED)
+                    if (lower.contains("calm") || lower.contains("relax") || lower.contains("peace") || lower.contains("chill") || lower.contains("quiet")) list.add(FeelingTag.CALM)
+                    if (lower.contains("happy") || lower.contains("great") || lower.contains("joy") || lower.contains("glad") || lower.contains("content")) list.add(FeelingTag.HAPPY)
+                    if (lower.contains("focus") || lower.contains("work") || lower.contains("study") || lower.contains("code") || lower.contains("progress")) list.add(FeelingTag.FOCUSED)
+                    if (lower.contains("frustrat") || lower.contains("annoy") || lower.contains("angry") || lower.contains("mad") || lower.contains("irritat")) list.add(FeelingTag.FRUSTRATED)
+                    if (lower.contains("energ") || lower.contains("workout") || lower.contains("gym") || lower.contains("pump") || lower.contains("active")) list.add(FeelingTag.ENERGISED)
+                    if (lower.contains("scroll") || lower.contains("insta") || lower.contains("shop") || lower.contains("buy")) {
+                        list.add(FeelingTag.STRESSED)
+                        list.add(FeelingTag.TIRED)
+                    }
+                    list.toList()
+                }
+            }
+
+            if (detectedNoteTags.isNotEmpty()) {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text("✦", fontSize = 10.sp, color = EmeraldGlow)
+                        Text(
+                            text = "GEMMA DETECTED FROM YOUR NOTE",
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = 1.sp,
+                            color = EmeraldGlow
+                        )
+                    }
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                    ) {
+                        detectedNoteTags.forEach { tag ->
+                            val isSelected = tag in state.selectedTags
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .background(if (isSelected) EmeraldGlow.copy(alpha = 0.25f) else Color(0x1A00C853))
+                                    .border(1.dp, if (isSelected) EmeraldGlow else Color(0x4D00C853), RoundedCornerShape(50))
+                                    .clickable { onTagToggled(tag) }
+                                    .padding(horizontal = 11.dp, vertical = 5.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text(if (isSelected) "✓" else "+", fontSize = 10.sp, color = EmeraldGlow, fontWeight = FontWeight.Bold)
+                                    Text(tag.label, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = EmeraldGlow)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
 
             // ── Full-Width Pill Gradient Save Button ──
             Box(

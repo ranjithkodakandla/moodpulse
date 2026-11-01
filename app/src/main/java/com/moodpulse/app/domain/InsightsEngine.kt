@@ -148,25 +148,26 @@ object InsightsEngine {
 
     fun generateObservation(insights: WeeklyInsights): String {
         if (!insights.hasEnoughData) {
+            val moodLabel = insights.mostFrequentMood?.label?.lowercase()
             return when (insights.totalEntries) {
-                0 -> "No check-ins this week yet. Tap a mood to get started."
-                1 -> "1 check-in recorded. Keep logging to see patterns emerge."
-                else -> "${insights.totalEntries} check-ins recorded. A few more and patterns will start to show."
+                0 -> "Tap \"+ Log Mood\" to capture your first check-in. The on-device Gemma AI will synthesize your patterns and digital habits here."
+                1 -> "You started the week feeling $moodLabel. Every log builds your baseline — keep checking in to uncover how sleep and screen habits shape your mood."
+                else -> "${insights.totalEntries} check-ins recorded so far. Your patterns are taking shape, reflecting a steady baseline. One more check-in will unlock full weekly trends."
             }
         }
 
-        val moodLabel = insights.mostFrequentMood?.label ?: "mixed"
+        val moodLabel = insights.mostFrequentMood?.label ?: "balanced"
         val trendNote = when (insights.moodTrend) {
-            MoodTrend.IMPROVING -> " — up from last week."
-            MoodTrend.DECLINING -> " — a dip compared to last week."
-            MoodTrend.STABLE -> " — consistent with last week."
-            MoodTrend.INSUFFICIENT_DATA -> "."
+            MoodTrend.IMPROVING -> " Your overall mood trajectory has lifted compared to last week."
+            MoodTrend.DECLINING -> " Mood has dipped slightly compared to last week — remember to honor your downtime."
+            MoodTrend.STABLE -> " Your emotional rhythm has remained steady and consistent."
+            MoodTrend.INSUFFICIENT_DATA -> ""
         }
 
         val peakNote = insights.peakTimeOfDay?.let {
-            " You tend to feel best in the ${it.label.lowercase()}."
+            " You tend to feel most centered in the ${it.label.lowercase()}."
         } ?: ""
 
-        return "Your most common mood this week was $moodLabel$trendNote$peakNote"
+        return "Your predominant feeling this week was $moodLabel.$trendNote$peakNote"
     }
 }

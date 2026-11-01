@@ -68,21 +68,30 @@ Reply with just the one-sentence question."""
         else 3f
 
         return when {
-            stressSignals >= 2 || (stressSignals >= 1 && withdrawalSignals >= 1) -> {
-                Triple(2, "LOW", listOf("stressed", "overwhelmed", "restless"))
+            highCategories.contains("SHOPPING") -> {
+                Triple(2, "HIGH", listOf("restless", "impulsive", "distracted"))
             }
-            highCategories.contains("SHOPPING") && highCategories.contains("ENTERTAINMENT") -> {
-                Triple(2, "LOW", listOf("distracted", "restless", "seeking comfort"))
+            highCategories.contains("SOCIAL") && (highCategories.contains("ENTERTAINMENT") || stressSignals >= 2) -> {
+                Triple(2, "HIGH", listOf("overwhelmed", "tired", "restless"))
+            }
+            highCategories.contains("SOCIAL") -> {
+                Triple(3, "MEDIUM", listOf("distracted", "seeking connection", "tired"))
+            }
+            highCategories.contains("ENTERTAINMENT") -> {
+                Triple(3, "MEDIUM", listOf("calm", "tired", "seeking comfort"))
             }
             highCategories.contains("PRODUCTIVITY") && lowCategories.isEmpty() -> {
-                Triple(4, "MEDIUM", listOf("focused", "engaged", "motivated"))
+                Triple(4, "HIGH", listOf("focused", "engaged", "motivated"))
+            }
+            stressSignals >= 2 || (stressSignals >= 1 && withdrawalSignals >= 1) -> {
+                Triple(2, "MEDIUM", listOf("stressed", "overwhelmed", "restless"))
             }
             lowCategories.contains("SOCIAL") && lowCategories.contains("COMMUNICATION") -> {
                 Triple(2, "LOW", listOf("withdrawn", "quiet", "reflective"))
             }
             else -> {
                 val baseMood = recentAvgMood.toInt().coerceIn(2, 4)
-                Triple(baseMood, "LOW", listOf("unsure", "mixed"))
+                Triple(baseMood, "LOW", listOf("reflective", "steady"))
             }
         }
     }
@@ -109,12 +118,20 @@ Reply with just the one-sentence question."""
         observations: List<BehaviouralObservation>,
         candidateMood: Int
     ): String {
-        val summary = analyser.buildObservationSummary(observations)
-        return when (candidateMood) {
-            1, 2 -> "Noticed $summary — are you feeling a bit stressed or low today?"
-            3 -> "Noticed $summary — how are you actually feeling?"
-            4, 5 -> "Noticed $summary — feeling pretty good today?"
-            else -> "Noticed $summary — want to log how you're feeling?"
+        val obsTypes = observations.map { it.observationType }
+        return when {
+            obsTypes.any { it == "HIGH_SHOPPING" } ->
+                "🛍 High shopping app activity noticed. Taking a mindful pause before making any big purchase — are you browsing out of need, or feeling stressed/bored?"
+            obsTypes.any { it == "HIGH_SOCIAL" } ->
+                "📱 Extended social media time noticed (Instagram/Facebook). Taking a mindful pause — how is your mental energy holding up?"
+            obsTypes.any { it == "HIGH_ENTERTAINMENT" } ->
+                "🎬 Substantial entertainment & media time today. Taking time to unwind, or looking for a comforting distraction?"
+            obsTypes.any { it == "HIGH_PRODUCTIVITY" } ->
+                "💼 Strong focus time on productive apps today! Checking in on your energy levels to help sustain your momentum."
+            candidateMood in listOf(1, 2) ->
+                "Noticed some demanding digital activity today — are you feeling a bit stressed or drained?"
+            else ->
+                "✦ Mindful Pause: Noticed your recent phone usage patterns — want to check in on how you're feeling?"
         }
     }
 }

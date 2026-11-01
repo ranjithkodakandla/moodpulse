@@ -57,6 +57,10 @@ fun MoodPulseNavGraph(container: AppContainer) {
     val logVm: LogMoodViewModel = viewModel(factory = LogMoodViewModel.Factory(container.moodRepository))
     val logState by logVm.state.collectAsStateWithLifecycle()
 
+    val gemmaVm: com.moodpulse.app.ai.GemmaViewModel = viewModel()
+    val gemmaState by gemmaVm.engineState.collectAsStateWithLifecycle()
+    val gemmaProgress by gemmaVm.downloadProgress.collectAsStateWithLifecycle()
+
     val smartContextVm: SmartContextViewModel = viewModel(
         factory = SmartContextViewModel.Factory(container.database, container.context)
     )
@@ -163,7 +167,13 @@ fun MoodPulseNavGraph(container: AppContainer) {
                     uiState = smartContextState,
                     viewModel = smartContextVm,
                     onNavigateToOnboarding = { navController.navigate("smart_context_onboarding") },
-                    onBack = { navController.popBackStack() }
+                    onBack = { navController.popBackStack() },
+                    onLogMoodFromHabit = { mood, tags, note ->
+                        logVm.selectMood(mood)
+                        tags.forEach { logVm.toggleTag(it) }
+                        logVm.updateNote(note)
+                        showLogSheet = true
+                    }
                 )
             }
             composable("smart_context_onboarding") {
@@ -213,7 +223,10 @@ fun MoodPulseNavGraph(container: AppContainer) {
                         } else {
                             smartContextVm.setMonitoringEnabled(enabled)
                         }
-                    }
+                    },
+                    gemmaState = gemmaState,
+                    gemmaProgress = gemmaProgress,
+                    onDownloadGemma = gemmaVm::downloadModel
                 )
             }
         }

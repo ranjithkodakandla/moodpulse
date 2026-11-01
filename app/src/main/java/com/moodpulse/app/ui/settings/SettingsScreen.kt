@@ -44,7 +44,10 @@ fun SettingsScreen(
     onClearMessages: () -> Unit,
     appVersion: String,
     smartContextState: SmartContextUiState = SmartContextUiState(),
-    onSmartContextToggle: (Boolean) -> Unit = {}
+    onSmartContextToggle: (Boolean) -> Unit = {},
+    gemmaState: com.moodpulse.app.ai.GemmaEngine.State = com.moodpulse.app.ai.GemmaEngine.State.NotDownloaded,
+    gemmaProgress: Float = 0f,
+    onDownloadGemma: () -> Unit = {}
 ) {
     val context = LocalContext.current
 
@@ -87,7 +90,11 @@ fun SettingsScreen(
         ) {
             // ── Gemma On-device AI Card (Prototype Inspired) ──
             item {
-                GemmaAiSettingsCard()
+                GemmaAiSettingsCard(
+                    gemmaState = gemmaState,
+                    gemmaProgress = gemmaProgress,
+                    onDownloadGemma = onDownloadGemma
+                )
             }
 
             // ── Smart Context & Digital Habits ──
@@ -315,7 +322,11 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun GemmaAiSettingsCard() {
+private fun GemmaAiSettingsCard(
+    gemmaState: com.moodpulse.app.ai.GemmaEngine.State,
+    gemmaProgress: Float,
+    onDownloadGemma: () -> Unit
+) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -344,26 +355,58 @@ private fun GemmaAiSettingsCard() {
                 }
                 Column {
                     Text(
-                        text = "Gemma On-device AI",
+                        text = "Gemma On-device AI Engine",
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
                         color = EmeraldGlow
                     )
                     Text(
-                        text = "Free · INT4 Quant · Runs fully offline",
+                        text = "Hybrid Semantic & LLM Engine · 100% Offline",
                         fontSize = 10.sp,
                         color = TextLight.copy(alpha = 0.45f)
                     )
                 }
             }
 
+            // Engine status banner
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0x1400C853))
+                    .border(1.dp, Color(0x2E00C853), RoundedCornerShape(10.dp))
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text("⚡", fontSize = 11.sp)
+                    Text(
+                        text = when (gemmaState) {
+                            is com.moodpulse.app.ai.GemmaEngine.State.Ready ->
+                                "Full Gemma 2B INT4 weights loaded & active offline"
+                            is com.moodpulse.app.ai.GemmaEngine.State.Downloading ->
+                                "Downloading model weights: ${(gemmaProgress * 100).toInt()}%"
+                            is com.moodpulse.app.ai.GemmaEngine.State.Error ->
+                                "On-Device Hybrid Engine active (${gemmaState.message})"
+                            else ->
+                                "On-Device Hybrid Engine active · Ready to analyze notes & habits"
+                        },
+                        fontSize = 10.sp,
+                        color = EmeraldGlow,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 listOf(
-                    "Smart feeling tag suggestions from your notes",
-                    "Personalised weekly mood insights",
-                    "Conversational check-in companion",
-                    "Pattern detection across 30+ days",
-                    "Mindful spending & distraction pause warnings"
+                    "Real-time feeling tag detection as you type notes",
+                    "Personalised weekly mood insights & pulse trends",
+                    "Smart Context mindful spending & shopping pause warnings",
+                    "Pattern detection across social, retail & entertainment apps",
+                    "100% on-device private: zero data ever leaves your phone"
                 ).forEach { feature ->
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -384,19 +427,52 @@ private fun GemmaAiSettingsCard() {
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(50))
                     .background(EmeraldGlow)
-                    .padding(vertical = 11.dp),
+                    .clickable(enabled = gemmaState !is com.moodpulse.app.ai.GemmaEngine.State.Downloading) {
+                        onDownloadGemma()
+                    }
+                    .padding(vertical = 12.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = "⬇ Download Gemma 2B",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = Color(0xFF003D14)
-                )
+                when (gemmaState) {
+                    is com.moodpulse.app.ai.GemmaEngine.State.Downloading -> {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp,
+                                color = Color(0xFF003D14)
+                            )
+                            Text(
+                                text = "Downloading Gemma weights... ${(gemmaProgress * 100).toInt()}%",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color(0xFF003D14)
+                            )
+                        }
+                    }
+                    is com.moodpulse.app.ai.GemmaEngine.State.Ready -> {
+                        Text(
+                            text = "✓ Gemma 2B Active (Offline LLM)",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color(0xFF003D14)
+                        )
+                    }
+                    else -> {
+                        Text(
+                            text = "⬇ Download Gemma 2B LLM (1.5 GB)",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color(0xFF003D14)
+                        )
+                    }
+                }
             }
 
             Text(
-                text = "One-time download. All inference runs on your device. Zero data leaves your phone.",
+                text = "Optional download for extended conversational LLM generation. Hybrid on-device semantic analysis is active by default.",
                 fontSize = 9.sp,
                 color = TextLight.copy(alpha = 0.35f),
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,

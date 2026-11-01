@@ -37,45 +37,88 @@ class BehaviourAnalyser {
         val now = System.currentTimeMillis()
 
         for ((category, todayMinutes) in todayCategoryTotals) {
-            val baseline = baselines[category] ?: continue
-            if (baseline.sampleDays < 3) continue // need at least 3 days of data
-            if (baseline.stdDev < 1f) continue     // skip stable-at-zero categories
+            val baseline = baselines[category]
 
-            val deviation = (todayMinutes - baseline.meanMinutesPerDay) / baseline.stdDev
-            deviations[category] = deviation
+            // 1. Z-Score Statistical Detection if we have at least 3 days baseline
+            if (baseline != null && baseline.sampleDays >= 3 && baseline.stdDev >= 1f) {
+                val deviation = (todayMinutes - baseline.meanMinutesPerDay) / baseline.stdDev
+                deviations[category] = deviation
 
-            if (deviation >= 1.5f) {
-                val evidence = mapOf(
-                    "category" to category,
-                    "todayMinutes" to todayMinutes,
-                    "baselineMean" to baseline.meanMinutesPerDay,
-                    "stdDev" to baseline.stdDev,
-                    "zScore" to deviation
-                )
-                observations.add(
-                    BehaviouralObservation(
-                        observationType = "HIGH_${category}",
-                        dateTime = now,
-                        baselineValue = baseline.meanMinutesPerDay,
-                        currentValue = todayMinutes.toFloat(),
-                        evidenceJson = gson.toJson(evidence)
+                if (deviation >= 1.3f) {
+                    val evidence = mapOf(
+                        "category" to category,
+                        "todayMinutes" to todayMinutes,
+                        "baselineMean" to baseline.meanMinutesPerDay,
+                        "stdDev" to baseline.stdDev,
+                        "zScore" to deviation
                     )
-                )
-            } else if (deviation <= -1.5f && baseline.meanMinutesPerDay >= 10f) {
-                // Only flag low usage if person normally uses this category meaningfully
-                val evidence = mapOf(
-                    "category" to category,
-                    "todayMinutes" to todayMinutes,
-                    "baselineMean" to baseline.meanMinutesPerDay,
-                    "stdDev" to baseline.stdDev,
-                    "zScore" to deviation
-                )
+                    observations.add(
+                        BehaviouralObservation(
+                            observationType = "HIGH_${category}",
+                            dateTime = now,
+                            baselineValue = baseline.meanMinutesPerDay,
+                            currentValue = todayMinutes.toFloat(),
+                            evidenceJson = gson.toJson(evidence)
+                        )
+                    )
+                } else if (deviation <= -1.3f && baseline.meanMinutesPerDay >= 10f) {
+                    val evidence = mapOf(
+                        "category" to category,
+                        "todayMinutes" to todayMinutes,
+                        "baselineMean" to baseline.meanMinutesPerDay,
+                        "stdDev" to baseline.stdDev,
+                        "zScore" to deviation
+                    )
+                    observations.add(
+                        BehaviouralObservation(
+                            observationType = "LOW_${category}",
+                            dateTime = now,
+                            baselineValue = baseline.meanMinutesPerDay,
+                            currentValue = todayMinutes.toFloat(),
+                            evidenceJson = gson.toJson(evidence)
+                        )
+                    )
+                }
+            } else {
+                // 2. Direct Adaptive Heuristic Detection for new installs & daily habit triggers
+                val isHighUsage = when (category) {
+                    "SHOPPING" -> todayMinutes >= 15
+                    "SOCIAL" -> todayMinutes >= 30
+                    "ENTERTAINMENT" -> todayMinutes >= 45
+                    "GAMING" -> todayMinutes >= 30
+                    "PRODUCTIVITY" -> todayMinutes >= 20
+                    else -> todayMinutes >= 45
+                }
+                if (isHighUsage) {
+                    val evidence = mapOf(
+                        "category" to category,
+                        "todayMinutes" to todayMinutes,
+                        "threshold" to "heuristic"
+                    )
+                    observations.add(
+                        BehaviouralObservation(
+                            observationType = "HIGH_${category}",
+                            dateTime = now,
+                            baselineValue = 0f,
+                            currentValue = todayMinutes.toFloat(),
+                            evidenceJson = gson.toJson(evidence)
+                        )
+                    )
+                }
+            }
+        }
+
+        // 3. If no observation hit high threshold but habits exist, flag top category so AI can correlate
+        if (observations.isEmpty() && todayCategoryTotals.isNotEmpty()) {
+            val top = todayCategoryTotals.maxByOrNull { it.value }
+            if (top != null && top.value >= 5) {
+                val evidence = mapOf("category" to top.key, "todayMinutes" to top.value, "reason" to "dominant_activity")
                 observations.add(
                     BehaviouralObservation(
-                        observationType = "LOW_${category}",
+                        observationType = "HIGH_${top.key}",
                         dateTime = now,
-                        baselineValue = baseline.meanMinutesPerDay,
-                        currentValue = todayMinutes.toFloat(),
+                        baselineValue = 0f,
+                        currentValue = top.value.toFloat(),
                         evidenceJson = gson.toJson(evidence)
                     )
                 )

@@ -71,6 +71,10 @@ class UsageCollector(private val context: Context) {
         }
     }
 
+    fun collectTodayAggregates(excludedPackages: Set<String> = emptySet()): List<AppUsageAggregate> {
+        return collectForDate(LocalDate.now(), excludedPackages)
+    }
+
     fun collectYesterdayAggregates(excludedPackages: Set<String> = emptySet()): List<AppUsageAggregate> {
         val yesterday = LocalDate.now().minusDays(1)
         return collectForDate(yesterday, excludedPackages)
