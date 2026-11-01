@@ -4,6 +4,8 @@ import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
+import androidx.work.Configuration
+import androidx.work.WorkManager
 import java.io.File
 
 class MoodPulseApp : Application() {
@@ -40,6 +42,9 @@ class MoodPulseApp : Application() {
         } catch (e: Throwable) {
             container = AppContainer(this)
         }
+        try {
+            WorkManager.initialize(this, Configuration.Builder().build())
+        } catch (_: Throwable) {}
         try {
             createNotificationChannel()
         } catch (_: Throwable) {}

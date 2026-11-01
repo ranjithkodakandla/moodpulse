@@ -65,7 +65,7 @@
             </intent-filter>
         </receiver>
 
-        <!-- WorkManager initialization -->
+        <!-- WorkManager auto-init disabled; initialized manually in MoodPulseApp -->
         <provider
             android:name="androidx.startup.InitializationProvider"
             android:authorities="${applicationId}.androidx-startup"
@@ -74,7 +74,9 @@
             xmlns:tools="http://schemas.android.com/tools">
             <meta-data
                 android:name="androidx.work.impl.WorkManagerInitializer"
-                android:value="androidx.startup" />
+                android:value="androidx.startup"
+                tools:node="remove"
+                xmlns:tools="http://schemas.android.com/tools" />
         </provider>
 
     </application>
