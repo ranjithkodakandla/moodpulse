@@ -72,6 +72,12 @@ class GemmaEngine(private val context: Context) {
         runCatching { inference.generateResponse(insightPrompt(entries)) }.getOrDefault("")
     }
 
+    /** Generate a response for the given prompt. Returns empty string if model not ready. */
+    suspend fun generateResponse(prompt: String): String = withContext(Dispatchers.IO) {
+        val inference = llm ?: return@withContext ""
+        runCatching { inference.generateResponse(prompt) }.getOrDefault("")
+    }
+
     /** Generate a conversational check-in reply. Delivers the full response via the callback. */
     suspend fun streamCheckIn(
         userMessage: String,
