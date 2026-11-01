@@ -11,18 +11,17 @@ import java.util.concurrent.TimeUnit
 
 class UsageCollector(private val context: Context) {
 
-    private val usageStatsManager by lazy {
-        context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+    private val usageStatsManager: UsageStatsManager? by lazy {
+        context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
     }
 
-    fun hasPermission(): Boolean {
+    fun hasPermission(): Boolean = runCatching {
+        val mgr = usageStatsManager ?: return@runCatching false
         val endTime = System.currentTimeMillis()
         val startTime = endTime - TimeUnit.HOURS.toMillis(1)
-        val stats = usageStatsManager.queryUsageStats(
-            UsageStatsManager.INTERVAL_DAILY, startTime, endTime
-        )
-        return stats != null && stats.isNotEmpty()
-    }
+        val stats = mgr.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, startTime, endTime)
+        stats != null && stats.isNotEmpty()
+    }.getOrDefault(false)
 
     fun openPermissionSettings() {
         val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).apply {
@@ -37,12 +36,13 @@ class UsageCollector(private val context: Context) {
     }
 
     fun collectForDate(date: LocalDate, excludedPackages: Set<String> = emptySet()): List<AppUsageAggregate> {
+        val mgr = usageStatsManager ?: return emptyList()
         val startMs = date.atStartOfDay()
             .atZone(java.time.ZoneId.systemDefault())
             .toInstant().toEpochMilli()
         val endMs = startMs + TimeUnit.DAYS.toMillis(1)
 
-        val stats = usageStatsManager.queryUsageStats(
+        val stats = mgr.queryUsageStats(
             UsageStatsManager.INTERVAL_DAILY, startMs, endMs
         ) ?: return emptyList()
 
