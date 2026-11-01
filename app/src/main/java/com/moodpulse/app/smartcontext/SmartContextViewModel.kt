@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.moodpulse.app.data.db.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -60,20 +61,41 @@ class SmartContextViewModel(
         }
     }
 
+    fun hasPermission(): Boolean = usageCollector.hasPermission()
+
+    fun refreshPermission() {
+        val granted = usageCollector.hasPermission()
+        _uiState.update { it.copy(hasPermission = granted) }
+    }
+
     fun openPermissionSettings() {
         usageCollector.openPermissionSettings()
     }
 
     fun setMonitoringEnabled(enabled: Boolean) {
         viewModelScope.launch {
+            if (enabled && !usageCollector.hasPermission()) {
+                refreshPermission()
+                if (!usageCollector.hasPermission()) return@launch
+            }
             val current = db.smartContextPreferencesDao().get()
             if (current == null) {
                 db.smartContextPreferencesDao().insert(SmartContextPreferences(monitoringEnabled = enabled))
             } else {
                 db.smartContextPreferencesDao().setMonitoringEnabled(enabled)
             }
+            _uiState.update { it.copy(hasPermission = usageCollector.hasPermission()) }
             if (enabled) {
                 SmartContextWorker.schedule(context)
+                // Collect recent aggregates so Digital Habits screen displays initial data
+                launch(Dispatchers.IO) {
+                    try {
+                        val aggregates = usageCollector.collectYesterdayAggregates()
+                        if (aggregates.isNotEmpty()) {
+                            db.appUsageAggregateDao().insertAll(aggregates)
+                        }
+                    } catch (_: Throwable) {}
+                }
             } else {
                 SmartContextWorker.cancel(context)
             }

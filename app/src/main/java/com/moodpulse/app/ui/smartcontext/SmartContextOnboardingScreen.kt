@@ -9,6 +9,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.moodpulse.app.ui.theme.AppIcons
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -16,9 +19,22 @@ import com.moodpulse.app.ui.theme.AppIcons
 fun SmartContextOnboardingScreen(
     hasPermission: Boolean,
     onOpenPermissionSettings: () -> Unit,
+    onRefreshPermission: () -> Unit,
     onEnable: () -> Unit,
     onBack: () -> Unit
 ) {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                onRefreshPermission()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
     Scaffold(
         topBar = {
             TopAppBar(
@@ -82,25 +98,42 @@ fun SmartContextOnboardingScreen(
                     Text("Open Usage Access Settings")
                 }
                 Text(
-                    text = "After granting, come back here and tap Enable below.",
+                    text = "After granting, return to MoodPulse and tap Enable below.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                 )
             } else {
                 Text(
-                    text = "Permission granted",
+                    text = "✓ Permission granted",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.SemiBold
                 )
             }
 
             Button(
-                onClick = onEnable,
-                enabled = hasPermission,
-                modifier = Modifier.fillMaxWidth()
+                onClick = {
+                    onRefreshPermission()
+                    if (hasPermission) {
+                        onEnable()
+                    } else {
+                        onOpenPermissionSettings()
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                )
             ) {
-                Text("Enable Smart Context")
+                Text(
+                    text = if (hasPermission) "Enable Smart Context" else "Grant Permission in Settings",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
 
             Spacer(Modifier.height(24.dp))

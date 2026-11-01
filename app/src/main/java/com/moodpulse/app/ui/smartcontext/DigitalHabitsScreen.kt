@@ -37,7 +37,8 @@ fun DigitalHabitsScreen(
         if (!uiState.prefs.monitoringEnabled) {
             DisabledPlaceholder(
                 onEnable = {
-                    if (uiState.hasPermission) viewModel.setMonitoringEnabled(true)
+                    viewModel.refreshPermission()
+                    if (viewModel.hasPermission()) viewModel.setMonitoringEnabled(true)
                     else onNavigateToOnboarding()
                 },
                 modifier = Modifier

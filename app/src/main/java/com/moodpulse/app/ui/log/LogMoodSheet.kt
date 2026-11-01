@@ -15,12 +15,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.moodpulse.app.domain.FeelingTag
 import com.moodpulse.app.domain.Mood
 import com.moodpulse.app.ui.components.FeelingTagChip
 import com.moodpulse.app.ui.components.MoodButton
+import com.moodpulse.app.ui.theme.moodColor
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -151,28 +154,35 @@ fun LogMoodSheet(
         Button(
             onClick = {
                 keyboard?.hide()
-                if (state.editingEntryId != null) onSave() else onSave()
+                onSave()
             },
             enabled = state.selectedMood != null && !state.isSaving,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(52.dp),
-            shape = RoundedCornerShape(50),
+                .height(54.dp),
+            shape = RoundedCornerShape(16.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                containerColor = state.selectedMood?.let { moodColor(it.value) } ?: MaterialTheme.colorScheme.primary,
+                contentColor = Color.White,
+                disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
+            ),
+            elevation = ButtonDefaults.buttonElevation(
+                defaultElevation = if (state.selectedMood != null) 4.dp else 0.dp
             )
         ) {
             if (state.isSaving) {
                 CircularProgressIndicator(
-                    modifier = Modifier.size(18.dp),
+                    modifier = Modifier.size(20.dp),
                     strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                    color = Color.White
                 )
             } else {
                 Text(
-                    text = if (state.editingEntryId != null) "Save changes" else "Save",
-                    style = MaterialTheme.typography.labelLarge
+                    text = if (state.editingEntryId != null) "Save changes" else "Save Check-in",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = if (state.selectedMood != null) Color.White else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.38f)
                 )
             }
         }

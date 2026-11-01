@@ -8,6 +8,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -57,6 +60,19 @@ fun MoodPulseNavGraph(container: AppContainer) {
         factory = SmartContextViewModel.Factory(container.database, container.context)
     )
     val smartContextState by smartContextVm.uiState.collectAsStateWithLifecycle()
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                smartContextVm.refreshPermission()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     // Auto-close sheet on save
     LaunchedEffect(logState.saved) {
@@ -150,6 +166,7 @@ fun MoodPulseNavGraph(container: AppContainer) {
                 SmartContextOnboardingScreen(
                     hasPermission = smartContextState.hasPermission,
                     onOpenPermissionSettings = smartContextVm::openPermissionSettings,
+                    onRefreshPermission = smartContextVm::refreshPermission,
                     onEnable = {
                         smartContextVm.setMonitoringEnabled(true)
                         navController.popBackStack()
@@ -181,7 +198,8 @@ fun MoodPulseNavGraph(container: AppContainer) {
                     appVersion = container.appVersion,
                     smartContextState = smartContextState,
                     onSmartContextToggle = { enabled ->
-                        if (enabled && !smartContextState.hasPermission) {
+                        smartContextVm.refreshPermission()
+                        if (enabled && !smartContextVm.hasPermission()) {
                             navController.navigate("smart_context_onboarding")
                         } else {
                             smartContextVm.setMonitoringEnabled(enabled)

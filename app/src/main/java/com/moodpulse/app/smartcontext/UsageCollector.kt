@@ -1,8 +1,12 @@
 package com.moodpulse.app.smartcontext
 
+import android.app.AppOpsManager
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.os.Process
 import android.provider.Settings
 import com.moodpulse.app.data.db.AppUsageAggregate
 import java.time.LocalDate
@@ -15,19 +19,56 @@ class UsageCollector(private val context: Context) {
         context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
     }
 
-    fun hasPermission(): Boolean = runCatching {
-        val mgr = usageStatsManager ?: return@runCatching false
-        val endTime = System.currentTimeMillis()
-        val startTime = endTime - TimeUnit.HOURS.toMillis(1)
-        val stats = mgr.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, startTime, endTime)
-        stats != null && stats.isNotEmpty()
-    }.getOrDefault(false)
+    fun hasPermission(): Boolean {
+        // 1. Primary Android check: AppOpsManager (instant, authoritative upon granting in system settings)
+        try {
+            val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as? AppOpsManager
+            if (appOps != null) {
+                val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    appOps.unsafeCheckOpNoThrow(
+                        AppOpsManager.OPSTR_GET_USAGE_STATS,
+                        Process.myUid(),
+                        context.packageName
+                    )
+                } else {
+                    @Suppress("DEPRECATION")
+                    appOps.checkOpNoThrow(
+                        AppOpsManager.OPSTR_GET_USAGE_STATS,
+                        Process.myUid(),
+                        context.packageName
+                    )
+                }
+                if (mode == AppOpsManager.MODE_ALLOWED) {
+                    return true
+                }
+            }
+        } catch (_: Throwable) {}
+
+        // 2. Secondary fallback check: queryUsageStats over the last 7 days
+        return runCatching {
+            val mgr = usageStatsManager ?: return@runCatching false
+            val endTime = System.currentTimeMillis()
+            val startTime = endTime - TimeUnit.DAYS.toMillis(7)
+            val stats = mgr.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, startTime, endTime)
+            stats != null && stats.isNotEmpty()
+        }.getOrDefault(false)
+    }
 
     fun openPermissionSettings() {
-        val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).apply {
+        val intentWithPackage = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            data = Uri.parse("package:${context.packageName}")
+        }
+        val fallbackIntent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK
         }
-        context.startActivity(intent)
+        try {
+            context.startActivity(intentWithPackage)
+        } catch (_: Throwable) {
+            try {
+                context.startActivity(fallbackIntent)
+            } catch (_: Throwable) {}
+        }
     }
 
     fun collectYesterdayAggregates(excludedPackages: Set<String> = emptySet()): List<AppUsageAggregate> {
