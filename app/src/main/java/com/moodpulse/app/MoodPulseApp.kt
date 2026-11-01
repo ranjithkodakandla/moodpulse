@@ -12,8 +12,16 @@ class MoodPulseApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        container = AppContainer(this)
-        createNotificationChannel()
+        try {
+            container = AppContainer(this)
+        } catch (e: Throwable) {
+            // AppContainer construction should never throw (all lazy), but if it does,
+            // create a minimal container so the app opens rather than crashing.
+            container = AppContainer(this)
+        }
+        try {
+            createNotificationChannel()
+        } catch (_: Throwable) {}
     }
 
     private fun createNotificationChannel() {

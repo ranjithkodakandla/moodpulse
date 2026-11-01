@@ -1,7 +1,6 @@
 package com.moodpulse.app.ai
 
 import android.content.Context
-import com.google.mediapipe.tasks.genai.llminference.LlmInference
 import com.moodpulse.app.data.db.MoodEntry
 import com.moodpulse.app.domain.FeelingTag
 import com.moodpulse.app.domain.Mood
@@ -14,7 +13,8 @@ import java.io.File
 
 /**
  * On-device Gemma 2B inference via MediaPipe LLM Inference API.
- * Model is downloaded once to app-private storage; all inference runs offline.
+ * MediaPipe is loaded via reflection so a native library failure doesn't crash the app —
+ * all AI features simply become no-ops until the user downloads the model.
  */
 class GemmaEngine(private val context: Context) {
 
@@ -28,9 +28,11 @@ class GemmaEngine(private val context: Context) {
     private val _state = MutableStateFlow<State>(State.NotDownloaded)
     val state: StateFlow<State> = _state.asStateFlow()
 
-    private var llm: LlmInference? = null
+    // Held as Any? to avoid a direct compile-time reference to LlmInference.
+    // If the MediaPipe native library fails to load, this stays null and all AI
+    // calls return graceful empty results instead of crashing the process.
+    private var llm: Any? = null
 
-    // Gemma 2B INT4 quantised model (~1.5 GB), stored in app-private files/
     val modelFile: File get() = File(context.filesDir, MODEL_FILE_NAME)
 
     init {
@@ -41,56 +43,72 @@ class GemmaEngine(private val context: Context) {
 
     internal fun initLlm() {
         try {
-            val options = LlmInference.LlmInferenceOptions.builder()
-                .setModelPath(modelFile.absolutePath)
-                .setMaxTokens(512)
-                .setTopK(40)
-                .setTemperature(0.7f)
-                .setRandomSeed(42)
-                .build()
-            llm = LlmInference.createFromOptions(context, options)
+            val inferenceClass = Class.forName(
+                "com.google.mediapipe.tasks.genai.llminference.LlmInference"
+            )
+            val optionsClass = Class.forName(
+                "com.google.mediapipe.tasks.genai.llminference.LlmInference\$LlmInferenceOptions"
+            )
+            val builderClass = Class.forName(
+                "com.google.mediapipe.tasks.genai.llminference.LlmInference\$LlmInferenceOptions\$Builder"
+            )
+
+            val builder = builderClass.getDeclaredConstructor().newInstance()
+            builderClass.getMethod("setModelPath", String::class.java)
+                .invoke(builder, modelFile.absolutePath)
+            builderClass.getMethod("setMaxTokens", Int::class.java).invoke(builder, 512)
+            builderClass.getMethod("setTopK", Int::class.java).invoke(builder, 40)
+            builderClass.getMethod("setTemperature", Float::class.java).invoke(builder, 0.7f)
+            builderClass.getMethod("setRandomSeed", Int::class.java).invoke(builder, 42)
+            val options = builderClass.getMethod("build").invoke(builder)
+
+            llm = inferenceClass.getMethod(
+                "createFromOptions",
+                Context::class.java, optionsClass
+            ).invoke(null, context, options)
+
             _state.value = State.Ready
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             _state.value = State.Error("Failed to load model: ${e.message}")
         }
     }
 
-    /** Analyse a mood note and return suggested FeelingTags. Returns empty list if model not ready. */
     suspend fun suggestTags(note: String): List<FeelingTag> = withContext(Dispatchers.IO) {
         val inference = llm ?: return@withContext emptyList()
         if (note.isBlank()) return@withContext emptyList()
         runCatching {
-            val response = inference.generateResponse(tagPrompt(note))
+            val response = callGenerateResponse(inference, tagPrompt(note))
             parseTagsFromResponse(response)
         }.getOrDefault(emptyList())
     }
 
-    /** Generate a personalised 2-sentence weekly insight from recent entries. */
     suspend fun weeklyInsight(entries: List<MoodEntry>): String = withContext(Dispatchers.IO) {
         val inference = llm ?: return@withContext ""
         if (entries.isEmpty()) return@withContext ""
-        runCatching { inference.generateResponse(insightPrompt(entries)) }.getOrDefault("")
+        runCatching { callGenerateResponse(inference, insightPrompt(entries)) }.getOrDefault("")
     }
 
-    /** Generate a response for the given prompt. Returns empty string if model not ready. */
     suspend fun generateResponse(prompt: String): String = withContext(Dispatchers.IO) {
         val inference = llm ?: return@withContext ""
-        runCatching { inference.generateResponse(prompt) }.getOrDefault("")
+        runCatching { callGenerateResponse(inference, prompt) }.getOrDefault("")
     }
 
-    /** Generate a conversational check-in reply. Delivers the full response via the callback. */
     suspend fun streamCheckIn(
         userMessage: String,
         onToken: (String) -> Unit
     ) = withContext(Dispatchers.IO) {
         val inference = llm ?: return@withContext
         runCatching {
-            val response = inference.generateResponse(checkInPrompt(userMessage))
+            val response = callGenerateResponse(inference, checkInPrompt(userMessage))
             onToken(response)
         }
     }
 
-    // ── Prompt builders ──────────────────────────────────────────────────
+    private fun callGenerateResponse(inference: Any, prompt: String): String {
+        return inference.javaClass
+            .getMethod("generateResponse", String::class.java)
+            .invoke(inference, prompt) as? String ?: ""
+    }
 
     private fun tagPrompt(note: String) = """
         <start_of_turn>user
@@ -127,15 +145,15 @@ class GemmaEngine(private val context: Context) {
     }
 
     fun close() {
-        llm?.close()
+        runCatching {
+            llm?.javaClass?.getMethod("close")?.invoke(llm)
+        }
         llm = null
     }
 
     companion object {
         const val MODEL_FILE_NAME = "gemma2b-it-cpu-int4.bin"
-        // Minimum expected model file size (~800 MB after INT4 quant)
         const val MIN_MODEL_BYTES = 800L * 1024 * 1024
-        // Hosted download URL — replace with your own CDN or Play Asset Delivery asset
         const val MODEL_DOWNLOAD_URL =
             "https://storage.googleapis.com/moodpulse-models/gemma2b-it-cpu-int4.bin"
     }
