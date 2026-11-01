@@ -78,13 +78,10 @@ class SmartContextViewModel(
                 refreshPermission()
                 if (!usageCollector.hasPermission()) return@launch
             }
-            val current = db.smartContextPreferencesDao().get()
-            if (current == null) {
-                db.smartContextPreferencesDao().insert(SmartContextPreferences(monitoringEnabled = enabled))
-            } else {
-                db.smartContextPreferencesDao().setMonitoringEnabled(enabled)
-            }
-            _uiState.update { it.copy(hasPermission = usageCollector.hasPermission()) }
+            val current = db.smartContextPreferencesDao().get() ?: SmartContextPreferences()
+            val updated = current.copy(monitoringEnabled = enabled)
+            db.smartContextPreferencesDao().insert(updated)
+            _uiState.update { it.copy(prefs = updated, hasPermission = usageCollector.hasPermission()) }
             if (enabled) {
                 SmartContextWorker.schedule(context)
                 // Collect recent aggregates so Digital Habits screen displays initial data

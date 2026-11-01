@@ -172,8 +172,13 @@ fun MoodPulseNavGraph(container: AppContainer) {
                     onOpenPermissionSettings = smartContextVm::openPermissionSettings,
                     onRefreshPermission = smartContextVm::refreshPermission,
                     onEnable = {
-                        smartContextVm.setMonitoringEnabled(true)
-                        navController.popBackStack()
+                        smartContextVm.refreshPermission()
+                        if (smartContextVm.hasPermission()) {
+                            smartContextVm.setMonitoringEnabled(true)
+                            navController.popBackStack()
+                        } else {
+                            smartContextVm.openPermissionSettings()
+                        }
                     },
                     onBack = { navController.popBackStack() }
                 )
