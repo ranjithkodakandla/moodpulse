@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
 import com.moodpulse.app.data.datastore.dataStore
 import com.moodpulse.app.ui.navigation.MoodPulseNavGraph
 import com.moodpulse.app.ui.onboarding.PermissionOnboardingScreen
