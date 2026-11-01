@@ -184,9 +184,9 @@ fun HomeScreen(
             }
 
             // ── Daily Observation Card ──
-            if (uiState.observation.isNotBlank()) {
+            if (!uiState.todayObservation.isNullOrBlank()) {
                 item {
-                    ObservationCard(text = uiState.observation)
+                    ObservationCard(text = uiState.todayObservation)
                 }
             }
 
