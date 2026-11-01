@@ -8,7 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.moodpulse.app.smartcontext.SmartContextUiState
+import com.moodpulse.app.ui.theme.AppIcons
 import java.time.LocalDateTime
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -75,7 +76,7 @@ fun SettingsScreen(
             item {
                 SettingsCard {
                     SettingsRow(
-                        icon = Icons.Outlined.Notifications,
+                        icon = AppIcons.Notifications,
                         title = "Daily reminder",
                         subtitle = "Get nudged to check in",
                         action = {
@@ -88,7 +89,7 @@ fun SettingsScreen(
                     if (uiState.preferences.remindersEnabled) {
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                         SettingsRow(
-                            icon = Icons.Outlined.Schedule,
+                            icon = AppIcons.Schedule,
                             title = "Reminder time",
                             subtitle = formatTime(uiState.preferences.reminderHour, uiState.preferences.reminderMinute),
                             action = {
@@ -117,9 +118,9 @@ fun SettingsScreen(
                     themes.forEachIndexed { idx, (mode, label) ->
                         SettingsRow(
                             icon = when (mode) {
-                                "light" -> Icons.Outlined.LightMode
-                                "dark" -> Icons.Outlined.DarkMode
-                                else -> Icons.Outlined.BrightnessAuto
+                                "light" -> AppIcons.LightMode
+                                "dark" -> AppIcons.DarkMode
+                                else -> AppIcons.BrightnessAuto
                             },
                             title = label,
                             action = {
@@ -141,7 +142,7 @@ fun SettingsScreen(
             item {
                 SettingsCard {
                     SettingsRow(
-                        icon = Icons.Outlined.Psychology,
+                        icon = AppIcons.Psychology,
                         title = "Smart Context",
                         subtitle = if (smartContextState.prefs.monitoringEnabled)
                             "Monitoring app usage patterns"
@@ -172,7 +173,7 @@ fun SettingsScreen(
             item {
                 SettingsCard {
                     SettingsRow(
-                        icon = Icons.Outlined.Download,
+                        icon = AppIcons.Download,
                         title = "Export as JSON",
                         subtitle = "${uiState.totalEntries} entries",
                         onClick = {
@@ -182,7 +183,7 @@ fun SettingsScreen(
                     )
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                     SettingsRow(
-                        icon = Icons.Outlined.TableChart,
+                        icon = AppIcons.TableChart,
                         title = "Export as CSV",
                         subtitle = "Open in spreadsheet apps",
                         onClick = {
@@ -192,14 +193,14 @@ fun SettingsScreen(
                     )
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                     SettingsRow(
-                        icon = Icons.Outlined.Upload,
+                        icon = AppIcons.Upload,
                         title = "Restore from backup",
                         subtitle = "Import a JSON backup",
                         onClick = { importLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) }
                     )
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                     SettingsRow(
-                        icon = Icons.Outlined.DeleteForever,
+                        icon = AppIcons.DeleteForever,
                         title = "Delete all data",
                         titleColor = MaterialTheme.colorScheme.error,
                         subtitle = "This cannot be undone",
@@ -225,7 +226,7 @@ fun SettingsScreen(
             item {
                 SettingsCard {
                     SettingsRow(
-                        icon = Icons.Outlined.Info,
+                        icon = Icons.Default.Info,
                         title = "Version",
                         subtitle = appVersion
                     )

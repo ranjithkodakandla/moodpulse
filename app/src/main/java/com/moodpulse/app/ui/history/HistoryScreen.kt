@@ -8,9 +8,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ChevronLeft
-import androidx.compose.material.icons.outlined.ChevronRight
+import com.moodpulse.app.ui.theme.AppIcons
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -127,7 +125,7 @@ private fun MoodCalendar(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = { onMonthChange(displayMonth.minusMonths(1)) }) {
-                    Icon(Icons.Outlined.ChevronLeft, contentDescription = "Previous month")
+                    Icon(AppIcons.ChevronLeft, contentDescription = "Previous month")
                 }
                 Text(
                     text = displayMonth.format(DateTimeFormatter.ofPattern("MMMM yyyy")),
@@ -137,7 +135,7 @@ private fun MoodCalendar(
                     if (displayMonth < YearMonth.now()) onMonthChange(displayMonth.plusMonths(1))
                 }) {
                     Icon(
-                        Icons.Outlined.ChevronRight,
+                        AppIcons.ChevronRight,
                         contentDescription = "Next month",
                         tint = if (displayMonth < YearMonth.now())
                             MaterialTheme.colorScheme.onSurface

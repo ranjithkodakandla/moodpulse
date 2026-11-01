@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
@@ -17,8 +18,7 @@
     -->
     <uses-permission
         android:name="android.permission.PACKAGE_USAGE_STATS"
-        tools:ignore="ProtectedPermissions"
-        xmlns:tools="http://schemas.android.com/tools" />
+        tools:ignore="ProtectedPermissions" />
 
     <application
         android:name=".MoodPulseApp"
@@ -42,6 +42,13 @@
             </intent-filter>
         </activity>
 
+        <!-- Dedicated crash screen running in its own clean process -->
+        <activity
+            android:name=".ui.crash.CrashActivity"
+            android:process=":crash"
+            android:exported="false"
+            android:theme="@style/Theme.MoodPulse" />
+
         <!-- Widget provider -->
         <receiver
             android:name=".widget.MoodWidgetReceiver"
@@ -64,20 +71,6 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
-
-        <!-- WorkManager auto-init disabled; initialized manually in MoodPulseApp -->
-        <provider
-            android:name="androidx.startup.InitializationProvider"
-            android:authorities="${applicationId}.androidx-startup"
-            android:exported="false"
-            tools:node="merge"
-            xmlns:tools="http://schemas.android.com/tools">
-            <meta-data
-                android:name="androidx.work.impl.WorkManagerInitializer"
-                android:value="androidx.startup"
-                tools:node="remove"
-                xmlns:tools="http://schemas.android.com/tools" />
-        </provider>
 
     </application>
 </manifest>

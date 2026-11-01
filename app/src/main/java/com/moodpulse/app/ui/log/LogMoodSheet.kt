@@ -7,8 +7,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -73,7 +73,7 @@ fun LogMoodSheet(
                 if (state.editingEntryId != null && onDelete != null) {
                     IconButton(onClick = onDelete) {
                         Icon(
-                            Icons.Outlined.Delete,
+                            Icons.Default.Delete,
                             contentDescription = "Delete entry",
                             tint = MaterialTheme.colorScheme.error
                         )
@@ -81,7 +81,7 @@ fun LogMoodSheet(
                 }
                 IconButton(onClick = onDismiss) {
                     Icon(
-                        Icons.Outlined.Close,
+                        Icons.Default.Close,
                         contentDescription = "Close",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )

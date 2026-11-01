@@ -3,8 +3,6 @@ package com.moodpulse.app.ui.smartcontext
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -14,6 +12,7 @@ import androidx.compose.ui.unit.dp
 import com.moodpulse.app.smartcontext.AppCategory
 import com.moodpulse.app.smartcontext.SmartContextUiState
 import com.moodpulse.app.smartcontext.SmartContextViewModel
+import com.moodpulse.app.ui.theme.AppIcons
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -29,7 +28,7 @@ fun DigitalHabitsScreen(
                 title = { Text("Digital Habits") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(AppIcons.ArrowBack, contentDescription = "Back")
                     }
                 }
             )

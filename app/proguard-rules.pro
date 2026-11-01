@@ -1,4 +1,6 @@
 -keepattributes SourceFile,LineNumberTable
 -keep class com.moodpulse.app.data.db.** { *; }
 -keep class com.moodpulse.app.data.datastore.** { *; }
+-keep class com.google.mediapipe.tasks.genai.** { *; }
+-dontwarn com.google.mediapipe.**
 -dontwarn kotlin.reflect.jvm.internal.**

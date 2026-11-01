@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -235,7 +235,7 @@ private fun PermissionPage(
                     verticalAlignment = Alignment.Top
                 ) {
                     Icon(
-                        Icons.Outlined.Lock,
+                        Icons.Default.Lock,
                         contentDescription = null,
                         tint = Color(0xFF00C853),
                         modifier = Modifier.size(18.dp).padding(top = 2.dp)

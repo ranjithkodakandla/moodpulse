@@ -3,7 +3,7 @@ package com.moodpulse.app.ui.navigation
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -31,12 +31,14 @@ import com.moodpulse.app.ui.settings.SettingsViewModel
 import com.moodpulse.app.ui.smartcontext.DigitalHabitsScreen
 import com.moodpulse.app.ui.smartcontext.SmartContextOnboardingScreen
 
+import com.moodpulse.app.ui.theme.AppIcons
+
 sealed class Screen(val route: String, val label: String, val icon: ImageVector) {
-    object Home : Screen("home", "Today", Icons.Outlined.Home)
-    object History : Screen("history", "History", Icons.Outlined.CalendarMonth)
-    object Insights : Screen("insights", "Pulse", Icons.Outlined.BarChart)
-    object Habits : Screen("habits", "Habits", Icons.Outlined.Insights)
-    object Settings : Screen("settings", "Settings", Icons.Outlined.Tune)
+    object Home : Screen("home", "Today", Icons.Default.Home)
+    object History : Screen("history", "History", AppIcons.CalendarMonth)
+    object Insights : Screen("insights", "Pulse", AppIcons.BarChart)
+    object Habits : Screen("habits", "Habits", AppIcons.Insights)
+    object Settings : Screen("settings", "Settings", AppIcons.Tune)
 }
 
 val bottomNavItems = listOf(Screen.Home, Screen.History, Screen.Insights, Screen.Habits, Screen.Settings)

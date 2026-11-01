@@ -1,17 +1,20 @@
 package com.moodpulse.app.ai
 
 import android.content.Context
+import com.google.mediapipe.tasks.genai.llminference.LlmInference
 import com.moodpulse.app.data.db.MoodEntry
 import com.moodpulse.app.domain.FeelingTag
+import com.moodpulse.app.domain.Mood
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
- * Stub GemmaEngine — MediaPipe dependency removed to ensure app stability.
- * All methods return graceful empty results. On-device AI will be re-enabled
- * in a future release once device compatibility is confirmed.
+ * On-device Gemma 2B inference via MediaPipe LLM Inference API.
+ * Model is downloaded once to app-private storage; all inference runs offline.
  */
 class GemmaEngine(private val context: Context) {
 
@@ -25,25 +28,114 @@ class GemmaEngine(private val context: Context) {
     private val _state = MutableStateFlow<State>(State.NotDownloaded)
     val state: StateFlow<State> = _state.asStateFlow()
 
+    private var llm: LlmInference? = null
+
+    // Gemma 2B INT4 quantised model (~1.5 GB), stored in app-private files/
     val modelFile: File get() = File(context.filesDir, MODEL_FILE_NAME)
 
-    fun initLlm() {
-        _state.value = State.Error("On-device AI coming in a future update")
+    init {
+        if (modelFile.exists() && modelFile.length() > MIN_MODEL_BYTES) {
+            initLlm()
+        }
     }
 
-    suspend fun suggestTags(note: String): List<FeelingTag> = emptyList()
+    internal fun initLlm() {
+        try {
+            val options = LlmInference.LlmInferenceOptions.builder()
+                .setModelPath(modelFile.absolutePath)
+                .setMaxTokens(512)
+                .setTopK(40)
+                .setTemperature(0.7f)
+                .setRandomSeed(42)
+                .build()
+            llm = LlmInference.createFromOptions(context, options)
+            _state.value = State.Ready
+        } catch (e: Throwable) {
+            _state.value = State.Error("Failed to load model: ${e.message}")
+        }
+    }
 
-    suspend fun weeklyInsight(entries: List<MoodEntry>): String = ""
+    /** Mode 1: Analyse a mood note and return suggested FeelingTags. Returns empty list if model not ready. */
+    suspend fun suggestTags(note: String): List<FeelingTag> = withContext(Dispatchers.IO) {
+        val inference = llm ?: return@withContext emptyList()
+        if (note.isBlank()) return@withContext emptyList()
+        runCatching {
+            val response = inference.generateResponse(tagPrompt(note))
+            parseTagsFromResponse(response)
+        }.getOrDefault(emptyList())
+    }
 
-    suspend fun generateResponse(prompt: String): String = ""
+    /** Mode 2: Generate a personalised 2-sentence weekly insight from recent entries. */
+    suspend fun weeklyInsight(entries: List<MoodEntry>): String = withContext(Dispatchers.IO) {
+        val inference = llm ?: return@withContext ""
+        if (entries.isEmpty()) return@withContext ""
+        runCatching { inference.generateResponse(insightPrompt(entries)) }.getOrDefault("")
+    }
 
-    suspend fun streamCheckIn(userMessage: String, onToken: (String) -> Unit) {}
+    /** Mode 3: Conversational check-in reply. */
+    suspend fun streamCheckIn(
+        userMessage: String,
+        onToken: (String) -> Unit
+    ) = withContext(Dispatchers.IO) {
+        val inference = llm ?: return@withContext
+        runCatching {
+            val reply = inference.generateResponse(checkInPrompt(userMessage))
+            onToken(reply)
+        }
+    }
 
-    fun close() {}
+    /** General natural language response generation (used by SuggestionEngine for Smart Context pauses). */
+    suspend fun generateResponse(prompt: String): String = withContext(Dispatchers.IO) {
+        val inference = llm ?: return@withContext ""
+        runCatching { inference.generateResponse(prompt) }.getOrDefault("")
+    }
+
+    // ── Prompt builders ──────────────────────────────────────────────────
+
+    private fun tagPrompt(note: String) = """
+        <start_of_turn>user
+        Analyse this short mood note. Reply with ONLY a comma-separated list of applicable tags from: CALM, HAPPY, ANXIOUS, STRESSED, TIRED, ENERGISED, FOCUSED, FRUSTRATED. No explanation.
+        Note: "$note"
+        <end_of_turn>
+        <start_of_turn>model
+    """.trimIndent()
+
+    private fun insightPrompt(entries: List<MoodEntry>): String {
+        val summary = entries.takeLast(14).joinToString("; ") { e ->
+            "${Mood.fromValue(e.mood).label}(${e.feelingTags.joinToString(",")})"
+        }
+        return """
+            <start_of_turn>user
+            Recent mood check-ins: $summary
+            Write a warm, encouraging 2-sentence personal insight about mood patterns. Be specific and positive.
+            <end_of_turn>
+            <start_of_turn>model
+        """.trimIndent()
+    }
+
+    private fun checkInPrompt(msg: String) = """
+        <start_of_turn>user
+        You are a supportive mood check-in companion. The user says: "$msg"
+        Respond warmly in 1-2 sentences and ask one clarifying question about how they are feeling. Be concise.
+        <end_of_turn>
+        <start_of_turn>model
+    """.trimIndent()
+
+    private fun parseTagsFromResponse(response: String): List<FeelingTag> {
+        val upper = response.uppercase()
+        return FeelingTag.entries.filter { tag -> upper.contains(tag.name) }
+    }
+
+    fun close() {
+        runCatching { llm?.close() }
+        llm = null
+    }
 
     companion object {
         const val MODEL_FILE_NAME = "gemma2b-it-cpu-int4.bin"
+        // Minimum expected model file size (~800 MB after INT4 quant)
         const val MIN_MODEL_BYTES = 800L * 1024 * 1024
+        // Hosted download URL — replace with your own CDN or Play Asset Delivery asset
         const val MODEL_DOWNLOAD_URL =
             "https://storage.googleapis.com/moodpulse-models/gemma2b-it-cpu-int4.bin"
     }

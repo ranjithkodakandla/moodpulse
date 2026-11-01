@@ -3,51 +3,40 @@ package com.moodpulse.app
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.content.Context
+import android.content.Intent
 import android.os.Build
-import androidx.work.Configuration
-import androidx.work.WorkManager
-import java.io.File
+import android.util.Log
+import com.moodpulse.app.ui.crash.CrashActivity
 
 class MoodPulseApp : Application() {
 
     lateinit var container: AppContainer
         private set
 
-    override fun attachBaseContext(base: android.content.Context) {
+    override fun attachBaseContext(base: Context) {
         super.attachBaseContext(base)
-        val prev = Thread.getDefaultUncaughtExceptionHandler()
-        Thread.setDefaultUncaughtExceptionHandler { t, e ->
+        val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             try {
-                val msg = buildString {
-                    append("THREAD: ${t.name}\n")
-                    append("${e::class.java.name}: ${e.message}\n")
-                    e.stackTrace.take(20).forEach { append("  at $it\n") }
-                    var cause = e.cause
-                    while (cause != null) {
-                        append("Caused by: ${cause::class.java.name}: ${cause.message}\n")
-                        cause.stackTrace.take(10).forEach { append("  at $it\n") }
-                        cause = cause.cause
-                    }
+                val stackTrace = Log.getStackTraceString(throwable)
+                val intent = Intent(this, CrashActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                    putExtra("EXTRA_STACK_TRACE", stackTrace)
                 }
-                File(filesDir, "last_crash.txt").writeText(msg)
-            } catch (_: Throwable) {}
-            prev?.uncaughtException(t, e)
+                startActivity(intent)
+                android.os.Process.killProcess(android.os.Process.myPid())
+                System.exit(10)
+            } catch (t: Throwable) {
+                defaultHandler?.uncaughtException(thread, throwable)
+            }
         }
     }
 
     override fun onCreate() {
         super.onCreate()
-        try {
-            container = AppContainer(this)
-        } catch (e: Throwable) {
-            container = AppContainer(this)
-        }
-        try {
-            WorkManager.initialize(this, Configuration.Builder().build())
-        } catch (_: Throwable) {}
-        try {
-            createNotificationChannel()
-        } catch (_: Throwable) {}
+        container = AppContainer(this)
+        createNotificationChannel()
     }
 
     private fun createNotificationChannel() {
