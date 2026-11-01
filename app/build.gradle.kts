@@ -47,10 +47,19 @@ android {
         buildConfig = true
     }
 
+    // MediaPipe LLM Inference requires 64-bit ABIs
+    defaultConfig {
+        ndk {
+            abiFilters += listOf("arm64-v8a", "x86_64")
+        }
+    }
+
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
+        // Keep MediaPipe .so files
+        jniLibs { keepDebugSymbols += "**/*.so" }
     }
 }
 
@@ -87,6 +96,9 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.datetime)
     implementation(libs.gson)
+
+    // On-device Gemma AI via MediaPipe LLM Inference API
+    implementation(libs.mediapipe.tasks.genai)
 
     testImplementation(libs.junit)
     testImplementation(libs.mockk)

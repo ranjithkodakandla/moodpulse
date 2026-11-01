@@ -4,6 +4,12 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!--
+      INTERNET is required solely for the one-time optional Gemma model download.
+      The app is fully functional without it; no mood data is ever transmitted.
+      Declared per Play Store Data Safety requirements (one-time asset download).
+    -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:name=".MoodPulseApp"

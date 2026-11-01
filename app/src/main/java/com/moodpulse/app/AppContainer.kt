@@ -1,6 +1,7 @@
 package com.moodpulse.app
 
 import android.content.Context
+import com.moodpulse.app.ai.GemmaEngine
 import com.moodpulse.app.data.datastore.UserPreferencesRepository
 import com.moodpulse.app.data.db.MoodDatabase
 import com.moodpulse.app.data.repository.MoodRepository
@@ -19,4 +20,8 @@ class AppContainer(val context: Context) {
     val preferencesRepository: UserPreferencesRepository by lazy {
         UserPreferencesRepository(context)
     }
+
+    // Initialised lazily — loads the model only when first accessed.
+    // Safe to hold long-term; call gemmaEngine.close() in onTerminate if needed.
+    val gemmaEngine: GemmaEngine by lazy { GemmaEngine(context) }
 }
