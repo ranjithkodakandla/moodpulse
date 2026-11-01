@@ -9,7 +9,7 @@ import com.moodpulse.app.data.repository.MoodRepository
 class AppContainer(val context: Context) {
     val appVersion: String by lazy {
         runCatching {
-            context.packageManager.getPackageInfo(context.packageName, 0).versionName
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.0.0"
         }.getOrDefault("1.0.0")
     }
 

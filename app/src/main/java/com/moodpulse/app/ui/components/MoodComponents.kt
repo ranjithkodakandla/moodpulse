@@ -9,7 +9,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.ripple.rememberRipple
+import androidx.compose.material3.ripple
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -60,7 +60,7 @@ fun MoodButton(
             .scale(scale)
             .clickable(
                 interactionSource = interactionSource,
-                indication = rememberRipple(bounded = true),
+                indication = ripple(bounded = true),
                 role = Role.RadioButton
             ) {
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)

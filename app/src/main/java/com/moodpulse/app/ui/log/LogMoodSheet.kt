@@ -2,6 +2,7 @@ package com.moodpulse.app.ui.log
 
 import androidx.compose.animation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -21,7 +22,7 @@ import com.moodpulse.app.domain.Mood
 import com.moodpulse.app.ui.components.FeelingTagChip
 import com.moodpulse.app.ui.components.MoodButton
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun LogMoodSheet(
     state: LogMoodState,

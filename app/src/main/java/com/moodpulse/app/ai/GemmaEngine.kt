@@ -72,16 +72,15 @@ class GemmaEngine(private val context: Context) {
         runCatching { inference.generateResponse(insightPrompt(entries)) }.getOrDefault("")
     }
 
-    /** Stream a conversational check-in reply token-by-token via the callback. */
+    /** Generate a conversational check-in reply. Delivers the full response via the callback. */
     suspend fun streamCheckIn(
         userMessage: String,
         onToken: (String) -> Unit
     ) = withContext(Dispatchers.IO) {
         val inference = llm ?: return@withContext
         runCatching {
-            inference.generateResponseAsync(checkInPrompt(userMessage)) { partial, done ->
-                onToken(partial)
-            }
+            val response = inference.generateResponse(checkInPrompt(userMessage))
+            onToken(response)
         }
     }
 
