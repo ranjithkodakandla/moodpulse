@@ -1,0 +1,125 @@
+name: Build APK & Upload to Google Drive
+
+on:
+  push:
+    branches: [ claude/moodpulse-android-app-frvnq9, main ]
+  workflow_dispatch:   # allows manual trigger from the Actions tab
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      # ── 1. Checkout ──────────────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── 2. JDK 17 ────────────────────────────────────────────────────────
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      # ── 3. Android SDK ───────────────────────────────────────────────────
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: 11076708
+          accept-android-sdk-licenses: true
+          packages: >
+            platforms;android-35
+            build-tools;35.0.0
+            ndk;26.3.11579264
+
+      # ── 4. Gradle cache ──────────────────────────────────────────────────
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ hashFiles('**/*.gradle.kts', '**/libs.versions.toml', '**/gradle-wrapper.properties') }}
+          restore-keys: gradle-
+
+      # ── 5. Build debug APK ───────────────────────────────────────────────
+      - name: Build debug APK
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug \
+            --no-daemon \
+            --stacktrace \
+            -Dorg.gradle.jvmargs="-Xmx4g -XX:+HeapDumpOnOutOfMemoryError"
+        env:
+          ANDROID_HOME: ${{ env.ANDROID_SDK_ROOT }}
+
+      # ── 6. Rename APK with version + date ────────────────────────────────
+      - name: Rename APK
+        id: apk
+        run: |
+          DATE=$(date +'%Y%m%d-%H%M')
+          SHA=$(echo "${{ github.sha }}" | head -c 7)
+          NAME="MoodPulse-debug-${DATE}-${SHA}.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "$NAME"
+          echo "filename=$NAME" >> $GITHUB_OUTPUT
+
+      # ── 7. Upload to GitHub Artifacts (always works, no extra setup) ─────
+      - name: Upload APK as GitHub Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.apk.outputs.filename }}
+          path: ${{ steps.apk.outputs.filename }}
+          retention-days: 30
+
+      # ── 8. Upload to Google Drive ─────────────────────────────────────────
+      #   Requires secret: GDRIVE_SERVICE_ACCOUNT_JSON
+      #   See README section "Google Drive Setup" for instructions.
+      - name: Upload to Google Drive
+        if: ${{ env.GDRIVE_SERVICE_ACCOUNT_JSON != '' }}
+        env:
+          GDRIVE_SERVICE_ACCOUNT_JSON: ${{ secrets.GDRIVE_SERVICE_ACCOUNT_JSON }}
+          APK_PATH: ${{ steps.apk.outputs.filename }}
+          GDRIVE_FOLDER_ID: "1HeTATKcvpoXI-NMlMHcduZFqghEPMjLC"
+        run: |
+          pip install --quiet google-api-python-client google-auth
+          python3 - <<'PYEOF'
+          import os, json, sys
+
+          sa_json = os.environ.get("GDRIVE_SERVICE_ACCOUNT_JSON", "")
+          if not sa_json.strip():
+              print("⚠️  GDRIVE_SERVICE_ACCOUNT_JSON secret not configured — skipping Drive upload")
+              print("📎  APK is available as a GitHub Actions Artifact on this run.")
+              sys.exit(0)
+
+          from google.oauth2 import service_account
+          from googleapiclient.discovery import build
+          from googleapiclient.http import MediaFileUpload
+
+          creds = service_account.Credentials.from_service_account_info(
+              json.loads(sa_json),
+              scopes=["https://www.googleapis.com/auth/drive.file"]
+          )
+          service = build("drive", "v3", credentials=creds, cache_discovery=False)
+
+          apk_path = os.environ["APK_PATH"]
+          folder_id = os.environ["GDRIVE_FOLDER_ID"]
+
+          file_metadata = {"name": os.path.basename(apk_path), "parents": [folder_id]}
+          media = MediaFileUpload(
+              apk_path,
+              mimetype="application/vnd.android.package-archive",
+              resumable=True
+          )
+          result = service.files().create(
+              body=file_metadata, media_body=media, fields="id,name,size"
+          ).execute()
+
+          size_mb = int(result.get("size", 0)) / (1024 * 1024)
+          print(f"✅ Uploaded to Google Drive:")
+          print(f"   File : {result['name']}")
+          print(f"   Size : {size_mb:.1f} MB")
+          print(f"   Link : https://drive.google.com/file/d/{result['id']}")
+          print(f"   Folder: https://drive.google.com/drive/folders/{folder_id}")
+          PYEOF

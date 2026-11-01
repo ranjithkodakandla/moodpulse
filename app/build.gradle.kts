@@ -16,6 +16,8 @@ android {
         versionCode = 1
         versionName = "1.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // MediaPipe LLM Inference requires 64-bit ABIs
+        ndk { abiFilters += listOf("arm64-v8a", "x86_64") }
     }
 
     buildTypes {
@@ -45,13 +47,6 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
-    }
-
-    // MediaPipe LLM Inference requires 64-bit ABIs
-    defaultConfig {
-        ndk {
-            abiFilters += listOf("arm64-v8a", "x86_64")
-        }
     }
 
     packaging {
