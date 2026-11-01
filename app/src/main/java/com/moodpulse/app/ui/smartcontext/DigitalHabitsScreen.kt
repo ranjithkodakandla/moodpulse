@@ -240,7 +240,7 @@ private fun AIHabitMoodCorrelationCard(
         hasShopping -> {
             Tuple5(
                 Mood.LOW,
-                listOf(FeelingTag.RESTLESS, FeelingTag.STRESSED),
+                listOf(FeelingTag.ANXIOUS, FeelingTag.STRESSED),
                 "SHOPPING & SPENDING PAUSE",
                 "High shopping activity detected (${formatMinutes(shoppingMinutes)}). Spikes in retail browsing or scrolling e-commerce apps often signal an emotional escape or stress-spending. Take a pause before checking out.",
                 "🛍"
