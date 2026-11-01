@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Exclude database from cloud backup for privacy -->
+    <exclude domain="database" path="moodpulse.db" />
+    <exclude domain="database" path="moodpulse.db-shm" />
+    <exclude domain="database" path="moodpulse.db-wal" />
+</full-backup-content>

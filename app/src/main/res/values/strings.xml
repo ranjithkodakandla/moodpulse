@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MoodPulse</string>
+    <string name="widget_label">MoodPulse Widget</string>
+    <string name="widget_description">Quickly log your mood from the home screen</string>
+</resources>

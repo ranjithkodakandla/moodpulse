@@ -1,0 +1,4 @@
+-keepattributes SourceFile,LineNumberTable
+-keep class com.moodpulse.app.data.db.** { *; }
+-keep class com.moodpulse.app.data.datastore.** { *; }
+-dontwarn kotlin.reflect.jvm.internal.**
