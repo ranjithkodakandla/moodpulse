@@ -98,6 +98,9 @@ dependencies {
     // On-device Gemma AI via MediaPipe LLM Inference API
     implementation(libs.mediapipe.tasks.genai)
 
+    // Health Connect for physical activity, steps, and sleep tracking
+    implementation(libs.androidx.health.connect)
+
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
     testImplementation(libs.arch.testing)

@@ -17,7 +17,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         SpendingEvent::class,
         SmartContextPreferences::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = true
 )
 @TypeConverters(FeelingTagConverter::class)
@@ -100,6 +100,19 @@ abstract class MoodDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL("ALTER TABLE `mood_suggestion` ADD COLUMN `status` TEXT NOT NULL DEFAULT 'NEW'")
+                database.execSQL("ALTER TABLE `mood_suggestion` ADD COLUMN `feedbackComment` TEXT")
+                database.execSQL("ALTER TABLE `mood_suggestion` ADD COLUMN `lastInteractedAt` INTEGER")
+                database.execSQL("ALTER TABLE `mood_suggestion` ADD COLUMN `snoozedUntil` INTEGER")
+                database.execSQL("ALTER TABLE `mood_suggestion` ADD COLUMN `liked` INTEGER NOT NULL DEFAULT 0")
+                database.execSQL("UPDATE `mood_suggestion` SET `status` = 'CONFIRMED' WHERE `userDecision` = 'CONFIRMED'")
+                database.execSQL("UPDATE `mood_suggestion` SET `status` = 'CORRECTED' WHERE `userDecision` = 'CORRECTED'")
+                database.execSQL("UPDATE `mood_suggestion` SET `status` = 'DISMISSED' WHERE `userDecision` = 'DISMISSED'")
+            }
+        }
+
         @Volatile
         private var instance: MoodDatabase? = null
 
@@ -115,7 +128,7 @@ abstract class MoodDatabase : RoomDatabase() {
                 MoodDatabase::class.java,
                 DATABASE_NAME
             )
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .fallbackToDestructiveMigration()
                 .fallbackToDestructiveMigrationOnDowngrade()
                 .build()

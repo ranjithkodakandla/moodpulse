@@ -18,8 +18,10 @@ data class SmartContextUiState(
     val pendingSuggestion: MoodSuggestion? = null,
     val recentObservations: List<BehaviouralObservation> = emptyList(),
     val categoryTotals: Map<String, Int> = emptyMap(),
+    val physicalActivity: PhysicalActivityData = PhysicalActivityData(),
     val hasPermission: Boolean = false,
-    val isLoading: Boolean = false
+    val isLoading: Boolean = false,
+    val cooldownRemainingMinutes: Int = 0
 )
 
 class SmartContextViewModel(
@@ -28,12 +30,18 @@ class SmartContextViewModel(
 ) : ViewModel() {
 
     private val usageCollector = UsageCollector(context)
+    val physicalActivityManager = PhysicalActivityManager(context)
     private val suggestionEngine: SuggestionEngine by lazy {
         (context.applicationContext as? MoodPulseApp)?.container?.suggestionEngine ?: SuggestionEngine(null)
     }
 
     private val _uiState = MutableStateFlow(SmartContextUiState())
     val uiState: StateFlow<SmartContextUiState> = _uiState.asStateFlow()
+
+    companion object {
+        const val COOLDOWN_MS = 60 * 60 * 1000L // 1 hour persistent cooldown
+        const val MAX_SUGGESTION_AGE_MS = 6 * 60 * 60 * 1000L // 6 hours expiration
+    }
 
     init {
         viewModelScope.launch {
@@ -42,22 +50,44 @@ class SmartContextViewModel(
                     db.smartContextPreferencesDao().observe()
                         .catch { emit(null) }
                         .map { it ?: SmartContextPreferences() },
-                    db.moodSuggestionDao().observePending()
-                        .catch { emit(null) }
-                ) { prefs, suggestion ->
-                    prefs to suggestion
-                }.collect { (prefs, suggestion) ->
+                    db.moodSuggestionDao().observePendingList()
+                        .catch { emit(emptyList()) }
+                ) { prefs, suggestionList ->
+                    val now = System.currentTimeMillis()
+                    // Filter out snoozed and expired suggestions
+                    val activePending = suggestionList.firstOrNull { suggestion ->
+                        val notSnoozed = suggestion.snoozedUntil == null || suggestion.snoozedUntil <= now
+                        val notExpired = (now - suggestion.createdAt) < MAX_SUGGESTION_AGE_MS
+                        notSnoozed && notExpired
+                    }
+
+                    // Expire older ones in the background
+                    if (suggestionList.any { (now - it.createdAt) >= MAX_SUGGESTION_AGE_MS }) {
+                        db.moodSuggestionDao().expireOlderThan(now - MAX_SUGGESTION_AGE_MS)
+                    }
+
+                    val elapsedSinceLast = now - prefs.lastSuggestionAt
+                    val remainingCooldown = if (elapsedSinceLast < COOLDOWN_MS) {
+                        ((COOLDOWN_MS - elapsedSinceLast) / 60_000L).toInt().coerceAtLeast(1)
+                    } else 0
+
+                    Triple(prefs, activePending, remainingCooldown)
+                }.collect { (prefs, activeSuggestion, cooldownRemaining) ->
                     try {
                         val hasPermission = usageCollector.hasPermission()
                         val observations = db.behaviouralObservationDao().getRecent(10)
                         val recentCategoryTotals = loadRecentCategoryTotals()
+                        val activity = physicalActivityManager.readTodayActivity()
+
                         _uiState.update {
                             it.copy(
                                 prefs = prefs,
-                                pendingSuggestion = suggestion,
+                                pendingSuggestion = activeSuggestion,
                                 recentObservations = observations,
                                 categoryTotals = recentCategoryTotals,
-                                hasPermission = hasPermission
+                                physicalActivity = activity,
+                                hasPermission = hasPermission,
+                                cooldownRemainingMinutes = cooldownRemaining
                             )
                         }
                     } catch (_: Exception) { /* keep last known state */ }
@@ -106,6 +136,20 @@ class SmartContextViewModel(
         if (!usageCollector.hasPermission()) return
         viewModelScope.launch(Dispatchers.IO) {
             try {
+                val now = System.currentTimeMillis()
+                val prefs = db.smartContextPreferencesDao().get() ?: SmartContextPreferences()
+
+                // Check persistent 1-hour cooldown unless forced
+                if (!forceGenerateSuggestion && (now - prefs.lastSuggestionAt < COOLDOWN_MS)) {
+                    return@launch
+                }
+
+                // Check if an active suggestion is already waiting
+                val existingPending = db.moodSuggestionDao().getPending(now, MAX_SUGGESTION_AGE_MS)
+                if (existingPending != null && !forceGenerateSuggestion) {
+                    return@launch
+                }
+
                 val today = usageCollector.collectTodayAggregates()
                 val yesterday = usageCollector.collectYesterdayAggregates()
                 val allRecent = today + yesterday
@@ -116,17 +160,27 @@ class SmartContextViewModel(
                 val baselineFrom = LocalDate.now().minusDays(30).format(DateTimeFormatter.ISO_LOCAL_DATE)
                 val baselineData = db.appUsageAggregateDao().getSince(baselineFrom)
                 val analyser = BehaviourAnalyser()
-                val analysis = analyser.analyse(baselineData, if (today.isNotEmpty()) today else yesterday)
+                val digitalAnalysis = analyser.analyse(baselineData, if (today.isNotEmpty()) today else yesterday)
 
-                if (analysis.observations.isNotEmpty()) {
-                    db.behaviouralObservationDao().insertAll(analysis.observations)
+                // Biometric / Physical activity signals
+                val activity = physicalActivityManager.readTodayActivity()
+                val activityObservations = physicalActivityManager.evaluateActivityObservations(activity)
 
-                    val existingPending = db.moodSuggestionDao().getPending()
-                    if (existingPending == null || forceGenerateSuggestion) {
-                        val recentMoods = db.moodDao().getRecentEntries(10).first()
-                        val suggestion = suggestionEngine.generateSuggestion(analysis.observations, recentMoods)
-                        if (suggestion != null) {
+                val combinedObservations = digitalAnalysis.observations + activityObservations
+                if (combinedObservations.isNotEmpty()) {
+                    db.behaviouralObservationDao().insertAll(combinedObservations)
+
+                    val recentMoods = db.moodDao().getRecentEntries(10).first()
+                    val suggestion = suggestionEngine.generateSuggestion(combinedObservations, recentMoods)
+                    if (suggestion != null) {
+                        // Prevent identical repeated suggestions within 12 hours
+                        val recentSuggestions = db.moodSuggestionDao().getRecent(4)
+                        val isDuplicate = recentSuggestions.any {
+                            it.promptText == suggestion.promptText && (now - it.createdAt < 12 * 3600 * 1000L)
+                        }
+                        if (!isDuplicate || forceGenerateSuggestion) {
                             db.moodSuggestionDao().insert(suggestion)
+                            db.smartContextPreferencesDao().setLastSuggestionAt(now)
                         }
                     }
                 }
@@ -162,7 +216,9 @@ class SmartContextViewModel(
                 val recentMoods = db.moodDao().getRecentEntries(10).first()
                 val suggestion = suggestionEngine.generateSuggestion(obs, recentMoods)
                 if (suggestion != null) {
+                    val now = System.currentTimeMillis()
                     db.moodSuggestionDao().insert(suggestion)
+                    db.smartContextPreferencesDao().setLastSuggestionAt(now)
                 }
             } catch (_: Throwable) {}
         }
@@ -177,15 +233,16 @@ class SmartContextViewModel(
 
     fun confirmSuggestion(suggestionId: Long, confirmedMood: Int, confirmedFeelings: List<String>) {
         viewModelScope.launch {
-            db.moodSuggestionDao().setCorrection(
+            val now = System.currentTimeMillis()
+            db.moodSuggestionDao().setConfirmed(
                 id = suggestionId,
-                decision = "CONFIRMED",
                 mood = confirmedMood,
-                feelings = confirmedFeelings.joinToString(",")
+                feelings = confirmedFeelings.joinToString(","),
+                timestamp = now
             )
+            _uiState.update { it.copy(pendingSuggestion = null) }
 
             // Insert real MoodEntry so it shows in today's timeline, streak, and charts!
-            val now = System.currentTimeMillis()
             val entry = MoodEntry(
                 mood = confirmedMood,
                 timestampMs = now,
@@ -200,32 +257,62 @@ class SmartContextViewModel(
         }
     }
 
-    fun dismissSuggestion(suggestionId: Long) {
+    fun correctSuggestion(suggestionId: Long, correctedMood: Int, correctedFeelings: List<String>, comment: String? = null) {
         viewModelScope.launch {
-            db.moodSuggestionDao().setDecision(suggestionId, "DISMISSED")
-        }
-    }
-
-    fun correctSuggestion(suggestionId: Long, correctedMood: Int, correctedFeelings: List<String>) {
-        viewModelScope.launch {
-            db.moodSuggestionDao().setCorrection(
-                id = suggestionId,
-                decision = "CORRECTED",
-                mood = correctedMood,
-                feelings = correctedFeelings.joinToString(",")
-            )
             val now = System.currentTimeMillis()
+            db.moodSuggestionDao().setCorrected(
+                id = suggestionId,
+                mood = correctedMood,
+                feelings = correctedFeelings.joinToString(","),
+                comment = comment,
+                timestamp = now
+            )
+            _uiState.update { it.copy(pendingSuggestion = null) }
+
             val entry = MoodEntry(
                 mood = correctedMood,
                 timestampMs = now,
                 timezoneId = ZoneId.systemDefault().id,
                 feelingTags = correctedFeelings,
-                note = "✦ Mindful Check-in (adjusted) via Smart Context",
+                note = if (!comment.isNullOrBlank()) "✦ Mindful Check-in (adjusted): $comment" else "✦ Mindful Check-in (adjusted) via Smart Context",
                 source = "smart_context",
                 createdAtMs = now,
                 updatedAtMs = now
             )
             db.moodDao().insert(entry)
+        }
+    }
+
+    fun acknowledgeSuggestion(suggestionId: Long, liked: Boolean = true, comment: String? = null) {
+        viewModelScope.launch {
+            val now = System.currentTimeMillis()
+            db.moodSuggestionDao().setAcknowledged(
+                id = suggestionId,
+                liked = liked,
+                comment = comment,
+                timestamp = now
+            )
+            _uiState.update { it.copy(pendingSuggestion = null) }
+        }
+    }
+
+    fun dismissSuggestion(suggestionId: Long) {
+        viewModelScope.launch {
+            val now = System.currentTimeMillis()
+            db.moodSuggestionDao().setDismissed(suggestionId, now)
+            _uiState.update { it.copy(pendingSuggestion = null) }
+        }
+    }
+
+    fun snoozeSuggestion(suggestionId: Long, durationMinutes: Int = 60) {
+        viewModelScope.launch {
+            val now = System.currentTimeMillis()
+            db.moodSuggestionDao().setSnoozed(
+                id = suggestionId,
+                untilTimestamp = now + durationMinutes * 60_000L,
+                timestamp = now
+            )
+            _uiState.update { it.copy(pendingSuggestion = null) }
         }
     }
 

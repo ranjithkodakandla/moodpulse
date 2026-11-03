@@ -40,7 +40,10 @@ fun HomeScreen(
     onEntryClick: (Long) -> Unit,
     pendingSuggestion: MoodSuggestion? = null,
     onSuggestionConfirm: (Long, Int, List<String>) -> Unit = { _, _, _ -> },
-    onSuggestionDismiss: (Long) -> Unit = {}
+    onSuggestionCorrect: (Long, Int, List<String>, String?) -> Unit = { _, _, _, _ -> },
+    onSuggestionAcknowledge: (Long, Boolean, String?) -> Unit = { _, _, _ -> },
+    onSuggestionDismiss: (Long) -> Unit = {},
+    onSuggestionSnooze: (Long) -> Unit = {}
 ) {
     val todayEntries = uiState.todayEntries
     val latestEntry = todayEntries.firstOrNull()
@@ -148,8 +151,11 @@ fun HomeScreen(
                 item {
                     SuggestionCard(
                         suggestion = pendingSuggestion,
-                        onConfirm = { mood, tags -> onSuggestionConfirm(pendingSuggestion.id, mood, tags) },
-                        onDismiss = { onSuggestionDismiss(pendingSuggestion.id) }
+                        onConfirm = onSuggestionConfirm,
+                        onCorrect = onSuggestionCorrect,
+                        onAcknowledge = onSuggestionAcknowledge,
+                        onDismiss = onSuggestionDismiss,
+                        onSnooze = onSuggestionSnooze
                     )
                 }
             }

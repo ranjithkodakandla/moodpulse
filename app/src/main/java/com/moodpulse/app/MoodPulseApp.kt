@@ -8,6 +8,11 @@ import android.content.Intent
 import android.os.Build
 import android.util.Log
 import com.moodpulse.app.ui.crash.CrashActivity
+import com.moodpulse.app.worker.ReminderScheduler
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 class MoodPulseApp : Application() {
 
@@ -37,6 +42,16 @@ class MoodPulseApp : Application() {
         super.onCreate()
         container = AppContainer(this)
         createNotificationChannel()
+
+        // Ensure default daily reminder is active if enabled
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val prefs = container.preferencesRepository.preferences.first()
+                if (prefs.remindersEnabled) {
+                    ReminderScheduler.schedule(applicationContext, prefs.reminderHour, prefs.reminderMinute)
+                }
+            } catch (_: Throwable) {}
+        }
     }
 
     private fun createNotificationChannel() {

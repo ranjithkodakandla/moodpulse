@@ -102,10 +102,14 @@ fun MoodPulseNavGraph(container: AppContainer) {
                         label = { Text(screen.label, style = MaterialTheme.typography.labelSmall) },
                         selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
                         onClick = {
-                            navController.navigate(screen.route) {
-                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
+                            if (currentDestination?.route != screen.route) {
+                                navController.navigate(screen.route) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = (screen.route != Screen.Home.route)
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = (screen.route != Screen.Home.route)
+                                }
                             }
                         },
                         colors = NavigationBarItemDefaults.colors(
@@ -133,14 +137,23 @@ fun MoodPulseNavGraph(container: AppContainer) {
                 HomeScreen(
                     uiState = state,
                     onLogMood = { showLogSheet = true },
-                    onSettingsClick = { navController.navigate(Screen.Settings.route) },
+                    onSettingsClick = {
+                        navController.navigate(Screen.Settings.route) {
+                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
                     onEntryClick = { id ->
                         editEntryId = id
                         logVm.loadForEdit(id)
                         showLogSheet = true
                     },
                     onSuggestionConfirm = smartContextVm::confirmSuggestion,
+                    onSuggestionCorrect = smartContextVm::correctSuggestion,
+                    onSuggestionAcknowledge = smartContextVm::acknowledgeSuggestion,
                     onSuggestionDismiss = smartContextVm::dismissSuggestion,
+                    onSuggestionSnooze = smartContextVm::snoozeSuggestion,
                     pendingSuggestion = smartContextState.pendingSuggestion
                 )
             }
@@ -203,6 +216,14 @@ fun MoodPulseNavGraph(container: AppContainer) {
                 )
                 val state by vm.uiState.collectAsStateWithLifecycle()
                 SettingsScreen(
+                    onBack = {
+                        if (!navController.popBackStack()) {
+                            navController.navigate(Screen.Home.route) {
+                                popUpTo(navController.graph.findStartDestination().id) { inclusive = false }
+                                launchSingleTop = true
+                            }
+                        }
+                    },
                     uiState = state,
                     onRemindersToggled = vm::setRemindersEnabled,
                     onReminderTimeSet = vm::setReminderTime,

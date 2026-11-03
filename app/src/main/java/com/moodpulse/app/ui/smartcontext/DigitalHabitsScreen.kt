@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.sp
 import com.moodpulse.app.domain.FeelingTag
 import com.moodpulse.app.domain.Mood
 import com.moodpulse.app.smartcontext.AppCategory
+import com.moodpulse.app.smartcontext.PhysicalActivityData
 import com.moodpulse.app.smartcontext.SmartContextUiState
 import com.moodpulse.app.smartcontext.SmartContextViewModel
 import com.moodpulse.app.ui.components.GlossyMoodOrb
@@ -174,6 +175,25 @@ fun DigitalHabitsScreen(
                         }
                     }
                 }
+            }
+
+            // ── Physical Activity & Wearable Health Connect ──
+            item {
+                Text(
+                    text = "PHYSICAL ACTIVITY & WEARABLE SIGNALS",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 1.2.sp,
+                    color = TextLight.copy(alpha = 0.35f)
+                )
+            }
+            item {
+                PhysicalActivityCard(
+                    activity = uiState.physicalActivity,
+                    onLogCheckIn = { mood, tags, note ->
+                        onLogMoodFromHabit?.invoke(mood, tags, note)
+                    }
+                )
             }
 
             if (uiState.recentObservations.isNotEmpty()) {
@@ -539,4 +559,143 @@ private fun categoryColor(category: String) = when (category.uppercase()) {
     "PRODUCTIVITY" -> EmeraldGlow
     "FINANCE" -> Color(0xFFFFCA28)
     else -> MintAccent
+}
+
+@Composable
+private fun PhysicalActivityCard(
+    activity: PhysicalActivityData,
+    onLogCheckIn: (Mood, List<FeelingTag>, String) -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color(0x0AFFFFFF))
+            .border(1.dp, Color(0x14FFFFFF), RoundedCornerShape(16.dp))
+            .padding(16.dp)
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(Color(0x1F00C853)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("🏃", fontSize = 14.sp)
+                    }
+                    Column {
+                        Text(
+                            text = "Physical Activity & Sleep",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextLight
+                        )
+                        Text(
+                            text = if (activity.isConnected) "Source: ${activity.source}" else "Health Connect / Step Sensor",
+                            fontSize = 10.sp,
+                            color = if (activity.isConnected) EmeraldGlow else TextLight.copy(alpha = 0.4f)
+                        )
+                    }
+                }
+            }
+
+            // Stat metrics grid
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                // Steps
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color(0x08FFFFFF))
+                        .padding(10.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text("👣", fontSize = 16.sp)
+                    Text(
+                        text = if (activity.todaySteps > 0) "%,d".format(activity.todaySteps) else "--",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextLight
+                    )
+                    Text("Steps Today", fontSize = 9.sp, color = TextLight.copy(alpha = 0.5f))
+                }
+                Spacer(Modifier.width(8.dp))
+                // Exercise / Active
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color(0x08FFFFFF))
+                        .padding(10.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text("⚡", fontSize = 16.sp)
+                    Text(
+                        text = if (activity.exerciseMinutes > 0) "${activity.exerciseMinutes}m" else "--",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextLight
+                    )
+                    Text("Active Mins", fontSize = 9.sp, color = TextLight.copy(alpha = 0.5f))
+                }
+                Spacer(Modifier.width(8.dp))
+                // Sleep
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color(0x08FFFFFF))
+                        .padding(10.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text("🌙", fontSize = 16.sp)
+                    Text(
+                        text = if (activity.sleepHours != null) "${activity.sleepHours}h" else "--",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextLight
+                    )
+                    Text("Last Sleep", fontSize = 9.sp, color = TextLight.copy(alpha = 0.5f))
+                }
+            }
+
+            if (activity.todaySteps >= 6000) {
+                Button(
+                    onClick = {
+                        onLogCheckIn(
+                            Mood.GOOD,
+                            listOf(FeelingTag.ENERGISED),
+                            "✦ Active day check-in: %,d steps logged via physical activity tracking".format(activity.todaySteps)
+                        )
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(50),
+                    colors = ButtonDefaults.buttonColors(containerColor = EmeraldGlow, contentColor = Color(0xFF003D14)),
+                    contentPadding = PaddingValues(vertical = 10.dp)
+                ) {
+                    Text("✦ Log Active 'Good' Mood", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+
+            Text(
+                text = "🔒 100% on-device & private. Biometrics from wearables or your phone synced via Google Health Connect enrich Smart Context without medical claims.",
+                fontSize = 9.sp,
+                color = TextLight.copy(alpha = 0.4f),
+                lineHeight = 12.sp
+            )
+        }
+    }
 }

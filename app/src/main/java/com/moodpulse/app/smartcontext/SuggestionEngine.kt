@@ -67,7 +67,21 @@ Reply with just the one-sentence question."""
             recentMoods.take(5).map { it.mood }.average().toFloat()
         else 3f
 
+        val obsTypes = observations.map { it.observationType }
+        val hasPhysicalActivity = obsTypes.contains("PHYSICAL_ACTIVITY_HIGH")
+        val hasShortSleep = obsTypes.contains("SHORT_SLEEP")
+        val hasRestfulSleep = obsTypes.contains("RESTFUL_SLEEP")
+
         return when {
+            hasShortSleep -> {
+                Triple(2, "MEDIUM", listOf("tired", "drained", "sluggish"))
+            }
+            hasPhysicalActivity -> {
+                Triple(4, "HIGH", listOf("energized", "accomplished", "active"))
+            }
+            hasRestfulSleep -> {
+                Triple(4, "MEDIUM", listOf("refreshed", "calm", "steady"))
+            }
             highCategories.contains("SHOPPING") -> {
                 Triple(2, "HIGH", listOf("restless", "impulsive", "distracted"))
             }
@@ -120,6 +134,12 @@ Reply with just the one-sentence question."""
     ): String {
         val obsTypes = observations.map { it.observationType }
         return when {
+            obsTypes.any { it == "PHYSICAL_ACTIVITY_HIGH" } ->
+                "🏃 Great physical movement detected today! Checking in on your energy — are you feeling refreshed and energized?"
+            obsTypes.any { it == "SHORT_SLEEP" } ->
+                "🌙 Shorter sleep recorded last night. Be gentle with yourself today — are you feeling a bit drained or low on energy?"
+            obsTypes.any { it == "RESTFUL_SLEEP" } ->
+                "✨ Restful sleep recorded last night. How is your morning energy feeling today?"
             obsTypes.any { it == "HIGH_SHOPPING" } ->
                 "🛍 High shopping app activity noticed. Taking a mindful pause before making any big purchase — are you browsing out of need, or feeling stressed/bored?"
             obsTypes.any { it == "HIGH_SOCIAL" } ->

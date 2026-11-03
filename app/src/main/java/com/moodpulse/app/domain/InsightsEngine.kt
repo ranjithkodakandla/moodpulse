@@ -39,11 +39,15 @@ object InsightsEngine {
         val hasEnoughData = currentWeekEntries.size >= 3
 
         if (!hasEnoughData) {
+            val mostFrequentEarly = if (currentWeekEntries.isNotEmpty()) {
+                currentWeekEntries.groupBy { Mood.fromValue(it.mood) }.maxByOrNull { it.value.size }?.key
+            } else null
+
             return WeeklyInsights(
                 weekStartMs = weekStartMs,
                 weekEndMs = weekEndMs,
                 totalEntries = currentWeekEntries.size,
-                mostFrequentMood = null,
+                mostFrequentMood = mostFrequentEarly,
                 moodDistribution = emptyMap(),
                 averageMood = 0f,
                 morningAvg = null,
@@ -148,7 +152,7 @@ object InsightsEngine {
 
     fun generateObservation(insights: WeeklyInsights): String {
         if (!insights.hasEnoughData) {
-            val moodLabel = insights.mostFrequentMood?.label?.lowercase()
+            val moodLabel = insights.mostFrequentMood?.label?.lowercase() ?: "grounded"
             return when (insights.totalEntries) {
                 0 -> "Tap \"+ Log Mood\" to capture your first check-in. The on-device Gemma AI will synthesize your patterns and digital habits here."
                 1 -> "You started the week feeling $moodLabel. Every log builds your baseline — keep checking in to uncover how sleep and screen habits shape your mood."

@@ -12,10 +12,10 @@ import java.io.IOException
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "user_prefs")
 
 data class AppPreferences(
-    val remindersEnabled: Boolean = false,
-    val reminderHour: Int = 20,
+    val remindersEnabled: Boolean = true, // ON by default for new installations
+    val reminderHour: Int = 20,           // Initial default 8:00 PM
     val reminderMinute: Int = 0,
-    val themeMode: String = "system",   // "light", "dark", "system"
+    val themeMode: String = "system",     // "light", "dark", "system"
     val onboardingCompleted: Boolean = false,
     val hasRatedApp: Boolean = false
 )
@@ -37,8 +37,15 @@ class UserPreferencesRepository(private val context: Context) {
             else throw e
         }
         .map { prefs ->
+            // If existing user already explicitly saved a preference, preserve their choice untouched.
+            // For new installations where the key is absent, default to true (8:00 PM).
+            val remindersEnabled = if (prefs.contains(Keys.REMINDERS_ENABLED)) {
+                prefs[Keys.REMINDERS_ENABLED] ?: true
+            } else {
+                true
+            }
             AppPreferences(
-                remindersEnabled = prefs[Keys.REMINDERS_ENABLED] ?: false,
+                remindersEnabled = remindersEnabled,
                 reminderHour = prefs[Keys.REMINDER_HOUR] ?: 20,
                 reminderMinute = prefs[Keys.REMINDER_MINUTE] ?: 0,
                 themeMode = prefs[Keys.THEME_MODE] ?: "system",

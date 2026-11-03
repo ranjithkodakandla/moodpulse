@@ -1,5 +1,6 @@
 package com.moodpulse.app.ui.smartcontext
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -26,11 +27,17 @@ import com.moodpulse.app.ui.theme.*
 @Composable
 fun SuggestionCard(
     suggestion: MoodSuggestion,
-    onConfirm: (Int, List<String>) -> Unit,
+    onConfirm: (Long, Int, List<String>) -> Unit,
+    onCorrect: (Long, Int, List<String>, String?) -> Unit,
+    onAcknowledge: (Long, Boolean, String?) -> Unit,
     onDismiss: (Long) -> Unit,
+    onSnooze: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var showActions by remember { mutableStateOf(false) }
+    var showCorrection by remember { mutableStateOf(false) }
+    var showCommentBox by remember { mutableStateOf(false) }
+    var userComment by remember { mutableStateOf("") }
+    var selectedMood by remember { mutableStateOf<Int?>(null) }
 
     Box(
         modifier = modifier
@@ -45,6 +52,7 @@ fun SuggestionCard(
             .padding(16.dp)
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            // Header with badge and Dismiss & Snooze buttons
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -64,23 +72,47 @@ fun SuggestionCard(
                     )
                 }
 
-                Box(
-                    modifier = Modifier
-                        .size(24.dp)
-                        .clip(CircleShape)
-                        .background(Color(0x14FFFFFF))
-                        .clickable { onDismiss(suggestion.id) },
-                    contentAlignment = Alignment.Center
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Dismiss",
-                        modifier = Modifier.size(12.dp),
-                        tint = TextLight.copy(alpha = 0.5f)
-                    )
+                    // Snooze 1h button
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(Color(0x14FFFFFF))
+                            .clickable { onSnooze(suggestion.id) }
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Snooze 1h",
+                            fontSize = 10.sp,
+                            color = TextLight.copy(alpha = 0.6f),
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+
+                    // Dismiss (X)
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .clip(CircleShape)
+                            .background(Color(0x14FFFFFF))
+                            .clickable { onDismiss(suggestion.id) },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Dismiss",
+                            modifier = Modifier.size(12.dp),
+                            tint = TextLight.copy(alpha = 0.5f)
+                        )
+                    }
                 }
             }
 
+            // Prompt text
             Text(
                 text = suggestion.promptText,
                 style = MaterialTheme.typography.bodyMedium,
@@ -88,10 +120,12 @@ fun SuggestionCard(
                 lineHeight = 20.sp
             )
 
-            if (!showActions) {
+            // Primary response actions
+            if (!showCorrection) {
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
+                    // Sounds right (Confirm)
                     Box(
                         modifier = Modifier
                             .weight(1f)
@@ -100,7 +134,7 @@ fun SuggestionCard(
                             .clickable {
                                 val feelings = suggestion.candidateFeelings
                                     .split(",").filter { it.isNotBlank() }
-                                onConfirm(suggestion.candidateMood, feelings)
+                                onConfirm(suggestion.id, suggestion.candidateMood, feelings)
                             }
                             .padding(vertical = 10.dp),
                         contentAlignment = Alignment.Center
@@ -113,13 +147,14 @@ fun SuggestionCard(
                         )
                     }
 
+                    // Not quite (Correct)
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(50))
                             .background(Color(0x14FFFFFF))
                             .border(1.dp, Color(0x24FFFFFF), RoundedCornerShape(50))
-                            .clickable { showActions = true }
+                            .clickable { showCorrection = true }
                             .padding(vertical = 10.dp),
                         contentAlignment = Alignment.Center
                     ) {
@@ -131,35 +166,110 @@ fun SuggestionCard(
                         )
                     }
                 }
-            } else {
-                Text(
-                    text = "Tap your actual mood:",
-                    fontSize = 11.sp,
-                    color = TextLight.copy(alpha = 0.5f),
-                    fontWeight = FontWeight.SemiBold
-                )
-                MoodQuickPicker(
-                    onMoodSelected = { mood ->
-                        onConfirm(mood, emptyList())
+
+                // Secondary row: Like / Acknowledge & Add Note
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(
+                        onClick = { onAcknowledge(suggestion.id, true, null) },
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                    ) {
+                        Text("👍 Helpful insight", fontSize = 11.sp, color = MintAccent)
                     }
-                )
+
+                    TextButton(
+                        onClick = { showCommentBox = !showCommentBox },
+                        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = if (showCommentBox) "Hide note" else "💬 Add comment",
+                            fontSize = 11.sp,
+                            color = TextLight.copy(alpha = 0.5f)
+                        )
+                    }
+                }
+            } else {
+                // Expanded correction section
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Tap your actual mood:",
+                        fontSize = 11.sp,
+                        color = TextLight.copy(alpha = 0.7f),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    MoodQuickPicker(
+                        selectedMood = selectedMood,
+                        onMoodSelected = { mood ->
+                            selectedMood = mood
+                            onCorrect(suggestion.id, mood, emptyList(), userComment.ifBlank { null })
+                        }
+                    )
+                }
+            }
+
+            // Optional comment box
+            AnimatedVisibility(visible = showCommentBox) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.padding(top = 4.dp)
+                ) {
+                    OutlinedTextField(
+                        value = userComment,
+                        onValueChange = { userComment = it },
+                        placeholder = {
+                            Text("Add your thoughts or reflections...", fontSize = 11.sp, color = TextLight.copy(alpha = 0.35f))
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = EmeraldGlow,
+                            unfocusedBorderColor = Color(0x24FFFFFF),
+                            focusedTextColor = TextLight,
+                            unfocusedTextColor = TextLight,
+                            cursorColor = EmeraldGlow
+                        ),
+                        singleLine = true
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(
+                            onClick = {
+                                if (userComment.isNotBlank()) {
+                                    onAcknowledge(suggestion.id, true, userComment)
+                                }
+                            }
+                        ) {
+                            Text("Save Note", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = EmeraldGlow)
+                        }
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-private fun MoodQuickPicker(onMoodSelected: (Int) -> Unit) {
+private fun MoodQuickPicker(
+    selectedMood: Int?,
+    onMoodSelected: (Int) -> Unit
+) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Mood.entries.forEach { mood ->
+            val isSelected = selectedMood == mood.value
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(4.dp),
                 modifier = Modifier
                     .clip(RoundedCornerShape(12.dp))
+                    .background(if (isSelected) Color(0x3300C853) else Color.Transparent)
                     .clickable { onMoodSelected(mood.value) }
                     .padding(horizontal = 6.dp, vertical = 6.dp)
             ) {
@@ -174,7 +284,7 @@ private fun MoodQuickPicker(onMoodSelected: (Int) -> Unit) {
                     },
                     fontSize = 9.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = TextLight.copy(alpha = 0.7f)
+                    color = if (isSelected) EmeraldGlow else TextLight.copy(alpha = 0.7f)
                 )
             }
         }
